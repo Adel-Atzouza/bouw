@@ -37,7 +37,7 @@ jobs:
             git fetch origin
             git reset --hard origin/main
 
-            pnpm ci
+            pnpm install --frozen-lockfile
             pnpm run build
 
             systemctl restart bouwbedrijf
