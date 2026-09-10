@@ -6,17 +6,15 @@ import { Icon, Logo } from "@/components/icon";
 import Calculator from "@/components/calculator";
 import PermitDialog from "@/components/permit-dialog";
 import ScrollReveals from "@/components/scroll-reveals";
+import HeroCarousel from "@/components/hero-carousel";
+import livingRoomImage from "@/public/images/living-room.jpg";
+import bathroomImage from "@/public/images/bathroom.jpg";
+import kitchenImage from "@/public/images/kitchen.jpg";
 
 const inspirations = [
-  { title: "Meer ruimte. Meer thuis.", category: "UITBOUW & WOONKAMER", image: "/images/living-room.jpg", alt: "Lichte woonkamer met natuurlijke materialen en een comfortabele zithoek", description: "Een fijne plek om samen te komen. Denk aan grote glaspartijen, een open indeling en een rustige overgang tussen binnen en buiten.", details: ["Een indeling die past bij uw dagelijks leven", "Meer daglicht en verbinding met de tuin", "Natuurlijke materialen en een rustige afwerking"] },
-  { title: "Elke dag een moment voor uzelf.", category: "BADKAMER", image: "/images/bathroom.jpg", alt: "Moderne badkamer met lichte tegels en warme details", description: "Een badkamer waarin de dag ontspannen begint. Met slimme opbergruimte, prettige verlichting en materialen die mooi blijven.", details: ["Een praktische indeling, ook in een kleine ruimte", "Een inloopdouche of een heerlijk ligbad", "Aandacht voor ventilatie en waterdichting"] },
-  { title: "Hier komt alles samen.", category: "KEUKEN & INTERIEUR", image: "/images/kitchen.jpg", alt: "Warme moderne keuken met een ruim kookeiland", description: "Koken, bijpraten en lang tafelen. Maak van de keuken een plek waar iedereen zich thuis voelt, met een indeling die echt voor u werkt.", details: ["Slimme werkruimte en voldoende opbergruimte", "Materialen die aansluiten op uw woonstijl", "Verlichting voor koken én gezelligheid"] },
-];
-
-const heroImages = [
-  { image: "/images/hero-interior.jpg", alt: "Lichte verbouwde woning met een houten vloer, open keuken en grote glazen schuifpui", caption: "MEER RUIMTE VOOR HET LEVEN" },
-  { image: "/images/kitchen.jpg", alt: "Lichte keuken met marmeren werkblad en warme houten accenten", caption: "HET HART VAN UW THUIS" },
-  { image: "/images/living-room.jpg", alt: "Zonnige woonkamer met planten en natuurlijke materialen", caption: "EEN PLEK DIE BIJ U PAST" },
+  { title: "Meer ruimte. Meer thuis.", category: "UITBOUW & WOONKAMER", image: livingRoomImage, alt: "Lichte woonkamer met natuurlijke materialen en een comfortabele zithoek", description: "Een fijne plek om samen te komen. Denk aan grote glaspartijen, een open indeling en een rustige overgang tussen binnen en buiten.", details: ["Een indeling die past bij uw dagelijks leven", "Meer daglicht en verbinding met de tuin", "Natuurlijke materialen en een rustige afwerking"] },
+  { title: "Elke dag een moment voor uzelf.", category: "BADKAMER", image: bathroomImage, alt: "Moderne badkamer met lichte tegels en warme details", description: "Een badkamer waarin de dag ontspannen begint. Met slimme opbergruimte, prettige verlichting en materialen die mooi blijven.", details: ["Een praktische indeling, ook in een kleine ruimte", "Een inloopdouche of een heerlijk ligbad", "Aandacht voor ventilatie en waterdichting"] },
+  { title: "Hier komt alles samen.", category: "KEUKEN & INTERIEUR", image: kitchenImage, alt: "Warme moderne keuken met een ruim kookeiland", description: "Koken, bijpraten en lang tafelen. Maak van de keuken een plek waar iedereen zich thuis voelt, met een indeling die echt voor u werkt.", details: ["Slimme werkruimte en voldoende opbergruimte", "Materialen die aansluiten op uw woonstijl", "Verlichting voor koken én gezelligheid"] },
 ];
 
 const faqs = [
@@ -28,8 +26,6 @@ const faqs = [
 ];
 
 export default function PlanBouw() {
-  const [heroIndex, setHeroIndex] = useState(0);
-  const [previousHeroIndex, setPreviousHeroIndex] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [calculatorVisible, setCalculatorVisible] = useState(false);
   const [permitOpen, setPermitOpen] = useState(false);
@@ -62,11 +58,6 @@ export default function PlanBouw() {
     setPermitWork(work);
     setPermitOpen(true);
     setMenuOpen(false);
-  }
-
-  function nextHeroImage() {
-    setPreviousHeroIndex(heroIndex);
-    setHeroIndex((current) => (current + 1) % heroImages.length);
   }
 
   return <>
@@ -104,23 +95,7 @@ export default function PlanBouw() {
             <p>Van het eerste idee tot de laatste afwerking.<br /><strong>Gebouwd rondom uw woonwensen.</strong></p>
           </div>
         </div>
-        <div className="hero-visual" role="region" aria-roledescription="fotogalerij" aria-label="Inspiratie voor uw woning">
-          {heroImages.map((item, index) => {
-            const state = index === heroIndex ? "current" : index === previousHeroIndex ? "previous" : "hidden";
-            const animation = state === "current" ? previousHeroIndex === null ? "" : "hero-image-enter" : state === "previous" ? "hero-image-exit" : "hero-image-hidden";
-            return <div key={`${index}-${state}`} className={`hero-image-layer ${animation}`} aria-hidden={state !== "current"}>
-              <Image src={item.image} alt={state === "current" ? item.alt : ""} fill sizes="(max-width: 760px) 100vw, 52vw" preload={index === 0} loading={index === 0 ? undefined : "eager"} className="hero-image" />
-            </div>;
-          })}
-          <div className="hero-image-shade" />
-          <span className="image-caption" aria-live="polite"><span /> {heroImages[heroIndex].caption}</span>
-          <div className="hero-float">
-            <span className="float-icon"><Icon name="calculator" size={25} /></span>
-            <div><strong>Uw woonwens, direct berekend.</strong><span>Wel de mogelijkheden. Geen verrassingen.</span></div>
-            <span className="float-check"><Icon name="check" size={17} /></span>
-          </div>
-          <button className="image-counter" onClick={nextHeroImage} aria-label={`Volgende inspiratiefoto, foto ${heroIndex + 1} van ${heroImages.length}`}>0{heroIndex + 1} <span>/</span> 03 <Icon name="arrow" size={16} /></button>
-        </div>
+        <HeroCarousel />
       </section>
       <div className="benefits-strip"><div className="container"><div><Icon name="calculator" size={22} /><span>Direct een <strong>prijsindicatie</strong></span></div><div><Icon name="shield" size={23} /><span>Hulp bij uw <strong>vergunning</strong></span></div><div><Icon name="ruler" size={23} /><span>Vakwerk <strong>op maat</strong></span></div><div><Icon name="house" size={23} /><span>Van eerste idee <strong>tot thuis</strong></span></div></div></div>
       <Calculator onPermit={openPermit} />

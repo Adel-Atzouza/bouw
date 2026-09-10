@@ -4,6 +4,10 @@ Nederlandstalige website voor een verbouwbedrijf, gebouwd met Next.js 16, React 
 
 De site gebruikt subtiele scrollanimaties, horizontale overgangen tussen carrouselbeelden en schuivende stappen in de prijsberekening en vergunninghulp. Alle effecten respecteren `prefers-reduced-motion`; inhoud blijft zonder JavaScript zichtbaar en formuliervelden behouden hun antwoorden bij het navigeren.
 
+Op brede desktops groeien typografie, knoppen en inhoud via `rem`-maten geleidelijk tot 133% van de oorspronkelijke schaal; de mobiele maten blijven behouden. De vergunningknop bij de prijsindicatie is maximaal `18rem` breed.
+
+De fotocarrousel wisselt elke zes seconden. Klik of tik op de linker- of rechterrand van de foto om terug of verder te bladeren, gebruik de pijltjestoetsen, swipe of sleep met de muis. Er zijn geen zichtbare navigatie- of pauzeknoppen; toetsenbordbediening krijgt wel een zichtbare focusmarkering. Automatisch afspelen pauzeert bij aanwijzen, een verborgen browsertab of een carrousel buiten beeld. Na handmatige bediening of toetsenbordfocus blijft de carrousel op handmatige bediening staan. Bij verminderde beweging staat automatisch afspelen uit. Lokale foto's worden statisch geïmporteerd, zodat gewijzigde bestanden een nieuwe afbeeldings-URL krijgen en oude cacheversies niet blijven hangen.
+
 ## Starten
 
 ```bash
