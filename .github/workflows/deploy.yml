@@ -3,7 +3,7 @@ name: Deploy bouwbedrijf
 on:
   push:
     branches:
-      - name
+      - main
 
 concurrency:
   group: bouwbedrijf-production
