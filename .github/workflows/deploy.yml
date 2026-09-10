@@ -37,8 +37,8 @@ jobs:
             git fetch origin
             git reset --hard origin/main
 
-            npm ci
-            npm run build
+            pnpm ci
+            pnpm run build
 
             systemctl restart bouwbedrijf
             systemctl is-active --quiet bouwbedrijf
