@@ -1,0 +1,5 @@
+import PlanBouw from "@/components/plan-bouw";
+
+export default function Home() {
+  return <PlanBouw />;
+}

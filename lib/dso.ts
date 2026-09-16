@@ -1,6 +1,6 @@
 export type DsoMode = "check" | "application";
 export type Address = { id: string; label: string; coordinates: [number, number] };
-export type DsoWork = { ref: string; label: string };
+export type DsoWork = { ref: string; label: string; permission?: string };
 export type DsoAnswer = { id: number; antwoord: string };
 export type DsoReference = { functioneleStructuurRef: string; antwoorden: DsoAnswer[] };
 export type DsoQuestion = {
@@ -10,7 +10,7 @@ export type DsoQuestion = {
   title: string;
   type: string;
   multiple: boolean;
-  options: { label: string; exclusive: boolean }[];
+  options: { label: string; value: string; exclusive: boolean }[];
   required: boolean;
   prefilled: string;
   helpIds: number[];
@@ -18,7 +18,7 @@ export type DsoQuestion = {
   multiline: boolean;
   geo: boolean;
 };
-export type DsoConclusion = { title: string; text: string; code?: string; warning?: string };
+export type DsoConclusion = { title: string; text: string; code?: string; warning?: string; helpIds?: number[]; applicationRef?: string };
 export type DsoResult = {
   questions: DsoQuestion[];
   conclusions: DsoConclusion[];
@@ -55,7 +55,7 @@ export function normalizeDsoResponse(payload: unknown, mode: DsoMode): DsoResult
   const questions = new Map<string, DsoQuestion>();
   const conclusions: DsoConclusion[] = [];
   const attachments: string[] = [];
-  let hasMissingData = false;
+  let hasMissingData = payload.length === 0;
 
   for (const item of payload) {
     const entry = object(item);
@@ -81,7 +81,7 @@ export function normalizeDsoResponse(payload: unknown, mode: DsoMode): DsoResult
           hasMissingData = true;
           warningParts.push("Er ontbreken gegevens voor het vervolg. Controleer de uitkomst bij het bevoegd gezag.");
         }
-        conclusions.push({ title, text: plainText(permission.waarde) || "Controleer deze activiteit in het Omgevingsloket.", code: string(permission.code), warning: warningParts.join(" ") || undefined });
+        conclusions.push({ title, text: plainText(permission.waarde) || "Controleer deze activiteit in het Omgevingsloket.", code: string(permission.code), warning: warningParts.join(" ") || undefined, helpIds: typeof conclusion.toelichtingId === "number" ? [conclusion.toelichtingId] : [], applicationRef: string(conclusion.toonbareActiviteitFunctioneleStructuurRef) || undefined });
       }
       if (warningParts.length && !list(activity.conclusies).length) conclusions.push({ title, text: "Voor deze activiteit is nog geen volledige conclusie beschikbaar.", warning: warningParts.join(" ") });
       for (const attachmentValue of list(activity.bijlagen)) {
@@ -103,10 +103,10 @@ export function normalizeDsoResponse(payload: unknown, mode: DsoMode): DsoResult
           questions.set(key, {
             key, ref: reference, id: question.id, title: plainText(question.tekst), type: string(question.antwoordType),
             multiple: question.optieType === "meerdereAntwoorden",
-            options: list(question.opties).map((optionValue) => { const option = object(optionValue); return { label: plainText(option.optieTekst), exclusive: option.optieGeenVanBovenstaande === true }; }),
+            options: list(question.opties).map(object).sort((first, second) => Number(first.sequenceId ?? 0) - Number(second.sequenceId ?? 0)).map((option) => ({ label: plainText(option.optieTekst), value: string(option.optieTekst), exclusive: option.optieGeenVanBovenstaande === true })),
             required: question.verplicht === true, prefilled,
             helpIds: [explanation.korteToelichtingId, explanation.langeToelichtingId].filter((value): value is number => typeof value === "number"),
-            hint: plainText(question.invulinstructie), multiline: question.invoertype === "tekstveld", geo: question.uitvoeringsregelType === "geoVerwijzing",
+            hint: plainText(question.invulinstructie), multiline: question.antwoordType === "string" && question.invoertype === "tekstveld", geo: question.uitvoeringsregelType === "geoVerwijzing",
           });
         }
       }

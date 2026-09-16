@@ -1,4 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
+import Image from "next/image";
+import logoImage from "@/public/images/bouwaanhuis.png";
 
 export type IconName = "arrow" | "arrow-up" | "check" | "clock" | "shield" | "calculator" | "house" | "extension" | "bath" | "kitchen" | "roof" | "renovation" | "paint" | "chevron" | "close" | "menu" | "download" | "pin" | "file" | "spark" | "plus" | "lock" | "ruler";
 
@@ -32,5 +34,7 @@ export function Icon({ name, size = 24, className, style }: { name: IconName; si
 }
 
 export function Logo() {
-  return <a className="brand" href="#" aria-label="Plan Bouw — naar de homepage"><svg width="42" height="43" viewBox="0 0 42 43" fill="none" aria-hidden="true"><path d="M3 37V16L20 4l17 12v21H23V23H13v14H3Z" stroke="currentColor" strokeWidth="2.3" /><path d="M23 23h14M13 16h10" stroke="currentColor" strokeWidth="2.3" /></svg><span>plan<span className="brand-light">bouw</span><span className="brand-dot">.</span></span></a>;
+  return <a className="brand" href="#" aria-label="Plan Bouw — naar de homepage">
+    <Image src={logoImage} alt={"Bouwaanhuis logo"} width="132" height="132" placeholder="blur" draggable={false} />
+  </a>
 }
