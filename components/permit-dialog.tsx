@@ -1,233 +1,194 @@
 "use client";
 
-import { useEffect, useRef, useState, type Ref } from "react";
-import dynamic from "next/dynamic";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
+import { QuestionField } from "@/components/permit-question";
+import PermitLocation from "@/components/permit-location";
+import PermitResults from "@/components/permit-results";
 import { downloadText } from "@/lib/pricing";
-import { buildDsoReferences, formatDsoAnswer, selectedDsoOptions, updateDsoHistory, type DsoAnsweredQuestion } from "@/lib/dso-flow";
-import type { Address, DsoMode, DsoQuestion, DsoResult, DsoWork } from "@/lib/dso";
+import { requestDso } from "@/lib/dso-client";
+import { applicationWorks, buildDsoReferences, checkIsComplete, formatDsoAnswer, reconcileDsoHistory, unansweredQuestions, updateDsoHistory, type DsoAnsweredQuestion } from "@/lib/dso-flow";
+import { emptyFlow, newPermitSession, parsePermitDraft, permitStorageKey, type PermitSession, type PermitStage } from "@/lib/permit-state";
+import type { Address, DsoEnvironment, DsoMode, DsoQuestion, DsoResult, DsoWork } from "@/lib/dso";
 
-const checkUrl = "https://omgevingswet.overheid.nl/checken";
-const applicationUrl = "https://omgevingswet.overheid.nl/aanvragen";
-const QuestionExplanation = dynamic(() => import("@/components/question-explanation"), { loading: () => <p role="status">Toelichting opmaken…</p> });
+export const checkUrl = "https://omgevingswet.overheid.nl/checken";
+export const applicationUrl = "https://omgevingswet.overheid.nl/aanvragen";
+type Connection = { available: boolean; environment: DsoEnvironment | null };
+type Props = { open: boolean; onClose: () => void; initialWork: string; initialContext?: { postcode: string; houseNumber: string }; onResult?: (text: string, context: { postcode: string; houseNumber: string }) => void };
+const stageLabels = ["Locatie", "Werkzaamheden", "Vragen", "Uitkomst"];
+const stageIds: PermitStage[] = ["location", "works", "questions", "result"];
 
-async function requestDso<T>(body: Record<string, unknown>): Promise<T> {
-  const response = await fetch("/api/omgevingswet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "De gegevens konden niet worden opgehaald.");
-  return data as T;
-}
-
-function QuestionHelp({ ids, label = "Toelichting bij deze vraag" }: { ids: number[]; label?: string }) {
-  const [help, setHelp] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  async function loadHelp() {
-    setLoading(true);
-    setError("");
-    try { const data = await Promise.all(ids.map((id) => requestDso<{ text: string }>({ action: "help", id }))); setHelp(data.map((item) => item.text).join("\n\n") || "DSO heeft geen toelichting bij dit onderdeel geleverd."); }
-    catch { setError("De toelichting is nu niet beschikbaar. Probeer opnieuw of bekijk dit onderdeel in het Omgevingsloket."); }
-    finally { setLoading(false); }
-  }
-  return <details className="help-details" onToggle={(event) => { if (event.currentTarget.open && help === null && !loading) loadHelp(); }}><summary>{label}</summary>{loading ? <p role="status">Toelichting ophalen…</p> : help && <QuestionExplanation text={help} />}{error && <><p role="alert">{error}</p><button className="back-link" type="button" disabled={loading} onClick={loadHelp}>Toelichting opnieuw ophalen</button></>}</details>;
-}
-
-function QuestionField({ question, value, onChange, disabled, focusRef }: { question: DsoQuestion; value: string; onChange: (value: string) => void; disabled?: boolean; focusRef?: Ref<HTMLFieldSetElement> }) {
-  const choices = question.geo ? [{ label: "Ja", value: "ja", exclusive: false }, { label: "Nee", value: "nee", exclusive: false }, { label: "Deels", value: "deels", exclusive: false }]
-    : question.type === "boolean" ? [{ label: "Ja", value: "true", exclusive: false }, { label: "Nee", value: "false", exclusive: false }]
-    : question.options.map((option) => ({ ...option, value: option.value ?? option.label }));
-  const selectedOptions = question.multiple ? selectedDsoOptions(question, value) : [];
-  const htmlId = `question-${question.id}-${encodeURIComponent(question.ref)}`;
-  const dateMatch = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
-  const dateValue = dateMatch ? `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}` : "";
-  return <fieldset className="dso-question form-question-enter" disabled={disabled} ref={focusRef} tabIndex={-1}><legend>{question.title}{question.required ? " *" : ""}</legend>{question.hint && <p className="question-hint">{question.hint}</p>}
-    {choices.length > 0 ? <div className="dso-choices">{choices.map((option) => <label key={option.value}><input type={question.multiple ? "checkbox" : "radio"} name={question.key} value={option.value} checked={question.multiple ? selectedOptions.includes(option.value) : value === option.value} required={question.required && !question.multiple} onChange={(event) => {
-      if (!question.multiple) return onChange(option.value);
-      const selected = selectedOptions;
-      if (!event.target.checked) return onChange(selected.filter((item) => item !== option.value).join(", "));
-      if (option.exclusive) return onChange(option.value);
-      const exclusiveOptions = choices.filter((item) => item.exclusive).map((item) => item.value);
-      onChange([...selected.filter((item) => !exclusiveOptions.includes(item)), option.value].join(", "));
-    }} />{option.label}</label>)}</div>
-    : question.type === "string" && question.multiline ? <textarea id={htmlId} aria-label={question.title} value={value} required={question.required} maxLength={6144} onChange={(event) => onChange(event.target.value)} />
-    : <input id={htmlId} aria-label={question.title} type={question.type === "numeriek" ? "number" : question.type === "datum" ? "date" : "text"} step={question.type === "numeriek" ? "any" : undefined} value={question.type === "datum" ? dateValue : value} maxLength={6144} required={question.required} onChange={(event) => {
-      const answer = event.target.value;
-      if (question.type === "datum" && answer) { const [year, month, day] = answer.split("-"); onChange(`${day}-${month}-${year}`); }
-      else onChange(answer);
-    }} />}
-    {question.helpIds.length > 0 && <QuestionHelp ids={question.helpIds} />}
-  </fieldset>;
-}
-
-export default function PermitDialog({ open, onClose, initialWork }: { open: boolean; onClose: () => void; initialWork: string }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const [available, setAvailable] = useState<boolean | null>(null);
-  const [testEnvironment, setTestEnvironment] = useState(false);
-  const [mode, setMode] = useState<DsoMode>("check");
-  const [stage, setStage] = useState<"start" | "address" | "works" | "questions">("start");
-  const [postcode, setPostcode] = useState("");
-  const [houseNumber, setHouseNumber] = useState("");
+export default function PermitDialog({ open, onClose, initialWork, initialContext, onResult }: Props) {
+  const [session, setSession] = useState(() => newPermitSession(initialContext));
+  const [connection, setConnection] = useState<Connection | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [address, setAddress] = useState<Address | null>(null);
+  const [searchResults, setSearchResults] = useState<DsoWork[]>([]);
   const [query, setQuery] = useState(initialWork);
-  const [works, setWorks] = useState<DsoWork[]>([]);
+  const [searchedQuery, setSearchedQuery] = useState("");
   const [nextPage, setNextPage] = useState<number | null>(null);
-  const [selectedWorks, setSelectedWorks] = useState<DsoWork[]>([]);
-  const [result, setResult] = useState<DsoResult | null>(null);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [history, setHistory] = useState<DsoAnsweredQuestion[]>([]);
+  const [draftValue, setDraftValue] = useState<string | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [searched, setSearched] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const requestVersion = useRef(0);
-  const questionRef = useRef<HTMLFieldSetElement>(null);
-  const currentQuestion = (editingKey ? history.find((entry) => entry.question.key === editingKey)?.question : result?.questions.find((question) => !history.some((entry) => entry.question.key === question.key))) ?? null;
+  const [notice, setNotice] = useState("");
+  const [saved, setSaved] = useState<PermitSession | null>(null);
+  const [restart, setRestart] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const questionField = useRef<HTMLFieldSetElement>(null);
+  const operation = useRef<AbortController | null>(null);
+  const flow = session[session.mode];
+  const pending = unansweredQuestions(flow.result, flow.history);
+  const currentQuestion = (editingKey ? flow.history.find((item) => item.question.key === editingKey)?.question : pending[0]) ?? null;
+  const currentValue = draftValue ?? (editingKey ? flow.history.find((item) => item.question.key === editingKey)?.value : undefined) ?? currentQuestion?.prefilled ?? "";
+  const testEnvironment = connection?.environment === "preproduction";
 
   useEffect(() => {
-    if (stage === "questions") questionRef.current?.focus({ preventScroll: true });
-  }, [stage, currentQuestion?.key]);
-
-  useEffect(() => {
-    if (open) dialogRef.current?.showModal();
-    else dialogRef.current?.close();
-  }, [open]);
-
-  useEffect(() => {
+    if (open) dialog.current?.showModal(); else dialog.current?.close();
     if (!open) return;
     const controller = new AbortController();
     fetch("/api/omgevingswet", { signal: controller.signal }).then(async (response) => {
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "De verbinding met het Omgevingsloket is nu niet beschikbaar.");
-      return data;
-    }).then((data) => { setAvailable(data.available); setTestEnvironment(data.environment === "preproduction"); }).catch((failure) => {
+      if (!response.ok) throw new Error(data.error || "De verbinding is tijdelijk niet beschikbaar.");
       if (controller.signal.aborted) return;
-      setAvailable(false);
-      setError(failure instanceof Error ? failure.message : "De verbinding met het Omgevingsloket is nu niet beschikbaar.");
-    });
-    return () => controller.abort();
+      setConnection(data);
+      setSession((current) => ({ ...current, environment: current.environment ?? data.environment }));
+      try { const raw = localStorage.getItem(permitStorageKey); if (raw) setSaved(parsePermitDraft(raw)); } catch { setNotice("Een eerdere check kon niet worden geopend. U kunt een nieuwe check starten."); }
+    }).catch((failure) => { if (!controller.signal.aborted) { setConnection({ available: false, environment: null }); setError(failure instanceof Error && !["TypeError", "SyntaxError"].includes(failure.name) ? failure.message : "De verbinding met het Omgevingsloket is tijdelijk niet beschikbaar."); } });
+    return () => { controller.abort(); operation.current?.abort(); operation.current = null; };
   }, [open]);
 
-  async function runRequest(action: () => Promise<void>) {
-    setBusy(true);
-    setError("");
-    try { await action(); }
-    catch (failure) { setError(failure instanceof Error ? failure.message : "Er is iets misgegaan. Probeer het opnieuw."); }
-    finally { setBusy(false); }
-  }
+  useEffect(() => {
+    if (!open) return;
+    if (session.stage === "questions" && currentQuestion) questionField.current?.focus({ preventScroll: true });
+    else heading.current?.focus({ preventScroll: true });
+    dialog.current?.scrollTo({ top: 0 });
+  }, [open, session.stage, currentQuestion?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function reset(nextMode: DsoMode) {
-    requestVersion.current += 1;
-    setMode(nextMode);
-    setStage("address");
-    setResult(null);
-    setSelectedWorks([]);
-    setAnswers({});
-    setHistory([]);
-    setEditingKey(null);
-    setWorks([]);
-    setNextPage(null);
-    setSearched(false);
-    setError("");
-    setDirty(false);
+  async function run(action: (signal: AbortSignal) => Promise<void>) {
+    if (operation.current) return;
+    const controller = new AbortController(); operation.current = controller;
+    setBusy(true); setError(""); setNotice("");
+    try { await action(controller.signal); }
+    catch (failure) { if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Er ging iets mis. Uw antwoorden zijn behouden."); }
+    finally { if (operation.current === controller) { operation.current = null; setBusy(false); } }
   }
-
-  async function findWorks(page = 1) {
-    if (!address) return;
-    await runRequest(async () => {
-      const data = await requestDso<{ works: DsoWork[]; nextPage: number | null }>({ action: "search", mode, query, coordinates: address.coordinates, page });
-      setWorks((current) => [...new Map([...(page === 1 ? [] : current), ...data.works].map((work) => [work.ref, work])).values()]);
-      setNextPage(data.nextPage);
-      setSearched(true);
+  function go(stage: PermitStage) { setSession((s) => ({ ...s, stage })); setError(""); setDraftValue(null); setEditingKey(null); }
+  function begin(mode: DsoMode) {
+    setSession((s) => ({ ...s, mode, stage: s.locationConfirmed ? "works" : "location" }));
+    setSearchResults([]); setSearchedQuery(""); setNextPage(null); setError(""); setDraftValue(null); setEditingKey(null);
+    setQuery(mode === "check" ? initialWork : "bouwactiviteit");
+  }
+  function changeAddressField(field: "postcode" | "houseNumber", value: string) {
+    setSession((s) => ({ ...s, [field]: value, address: null, geometry: null, locationConfirmed: false, check: emptyFlow(), application: emptyFlow() }));
+    setAddresses([]); setSearchResults([]); setSearchedQuery(""); setNextPage(null);
+  }
+  function chooseAddress(address: Address) {
+    if (address.id === session.address?.id) return;
+    setSession((s) => ({ ...s, address, geometry: null, locationConfirmed: false, check: emptyFlow(), application: emptyFlow() }));
+    setSearchResults([]); setSearchedQuery(""); setNextPage(null);
+  }
+  async function findWorks(text = query, page = 1) {
+    if (text.trim().length < 2) { setError("Vul minimaal twee letters in."); return; }
+    setQuery(text);
+    await run(async (signal) => {
+      const data = await requestDso<{ works: DsoWork[]; nextPage: number | null }>({ action: "search", mode: session.mode, query: text, geometry: session.geometry, page }, signal);
+      if (signal.aborted) return;
+      setSearchResults((previous) => [...new Map([...(page === 1 ? [] : previous), ...data.works].map((work) => [work.ref, work])).values()]);
+      setNextPage(data.nextPage); setSearchedQuery(text);
     });
   }
-
-  function clearQuestions() {
-    requestVersion.current += 1;
-    setResult(null);
-    setAnswers({});
-    setHistory([]);
-    setEditingKey(null);
-    setDirty(false);
+  function toggleWork(work: DsoWork) {
+    const works = flow.works.some((item) => item.ref === work.ref) ? flow.works.filter((item) => item.ref !== work.ref) : [...flow.works, work];
+    setSession((s) => ({ ...s, [s.mode]: { ...emptyFlow(), works }, ...(s.mode === "check" ? { application: emptyFlow() } : {}) }));
+    setNotice("Na een wijziging in de werkzaamheden begint de vragenlijst opnieuw.");
   }
-
-  async function executeQuestions(question: DsoQuestion | null = null, skip = false) {
-    if (!address || !selectedWorks.length) return;
-    const value = question ? skip ? "" : answers[question.key] ?? question.prefilled : "";
-    if (question && ((!skip && !value.trim()) || (skip && question.required))) {
-      setError(question.required ? "Beantwoord deze verplichte vraag voordat u verdergaat." : "Kies of vul een antwoord in, of sla deze vraag over als u het antwoord nog niet weet.");
-      return;
-    }
-    const nextHistory = question ? updateDsoHistory(history, question, value) : history;
-    const version = ++requestVersion.current;
-    await runRequest(async () => {
-      const references = buildDsoReferences(selectedWorks, nextHistory);
-      const data = await requestDso<DsoResult>({ action: "execute", mode, coordinates: address.coordinates, references });
-      if (version !== requestVersion.current) return;
-      setResult(data);
-      setHistory(nextHistory);
-      setEditingKey(null);
-      setAnswers(Object.fromEntries([...data.questions.map((question) => [question.key, question.prefilled]), ...nextHistory.map((entry) => [entry.question.key, entry.value])]));
-      setStage("questions");
-      setDirty(false);
-      requestAnimationFrame(() => dialogRef.current?.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
+  async function evaluate(snapshot: PermitSession, history = snapshot[snapshot.mode].history, works = snapshot[snapshot.mode].works) {
+    if (!snapshot.geometry || !snapshot.locationConfirmed || !works.length) return;
+    if (snapshot.environment !== connection?.environment) { setError("Deze check hoort bij een andere omgeving. Start een nieuwe check voor de huidige verbinding."); return; }
+    await run(async (signal) => {
+      const data = await requestDso<DsoResult>({ action: "execute", mode: snapshot.mode, geometry: snapshot.geometry, references: buildDsoReferences(works, history) }, signal);
+      if (signal.aborted) return;
+      const reconciled = reconcileDsoHistory(data, history);
+      const previousRuleIds = snapshot[snapshot.mode].result?.ruleIds ?? snapshot[snapshot.mode].ruleIds;
+      const rulesChanged = previousRuleIds?.length && JSON.stringify(previousRuleIds) !== JSON.stringify(data.ruleIds);
+      // Reconfirm answers when the rule files themselves changed, rather than
+      // carrying user answers into a different version without review.
+      const acceptedHistory = rulesChanged ? [] : reconciled;
+      const stage = unansweredQuestions(data, acceptedHistory).length ? "questions" : "result";
+      setSession({ ...snapshot, stage, [snapshot.mode]: { works, history: acceptedHistory, result: data, checkedAt: new Date().toISOString(), ruleIds: data.ruleIds }, ...(snapshot.mode === "check" && editingKey ? { application: emptyFlow() } : {}) });
+      setEditingKey(null); setDraftValue(null);
+      if (rulesChanged) setNotice("De officiële regels zijn intussen gewijzigd. Controleer en bevestig uw antwoorden opnieuw.");
     });
   }
-
-  function editAnswer(entry: DsoAnsweredQuestion) {
-    setEditingKey(entry.question.key);
-    setAnswers((current) => ({ ...current, [entry.question.key]: entry.value }));
-    setDirty(true);
-    setError("");
-    dialogRef.current?.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  function answer(question: DsoQuestion, skip = false) {
+    const value = skip ? "" : currentValue;
+    if ((!skip && !value.trim()) || (skip && question.required)) { setError("Beantwoord deze vraag of kies ‘Weet ik nog niet’ als overslaan mogelijk is."); return; }
+    void evaluate(session, updateDsoHistory(flow.history, question, value));
   }
-
+  function edit(entry: DsoAnsweredQuestion) { setEditingKey(entry.question.key); setDraftValue(entry.value); setSession((s) => ({ ...s, stage: "questions" })); setError(""); }
   function prepareApplication() {
-    const applicationWorks = [...new Map((result?.conclusions ?? []).flatMap((conclusion) => conclusion.applicationRef ? [[conclusion.applicationRef, { ref: conclusion.applicationRef, label: conclusion.title }] as const] : [])).values()];
-    reset("application");
-    setSelectedWorks(applicationWorks);
-    setWorks(applicationWorks);
-    setStage("works");
+    const works = applicationWorks(session.check.result?.conclusions ?? []);
+    const same = JSON.stringify(works.map((w) => w.ref).sort()) === JSON.stringify(session.application.works.map((w) => w.ref).sort());
+    setSession((s) => ({ ...s, mode: "application", stage: "works", application: same ? s.application : { ...emptyFlow(), works } }));
+    setSearchResults([]); setSearchedQuery(""); setNextPage(null); setQuery("bouwactiviteit"); setError(""); setDraftValue(null);
   }
-
+  function save() {
+    if (!session.address || !session.geometry || !session.environment || busy) return;
+    try { localStorage.setItem(permitStorageKey, JSON.stringify(session)); setSaved(parsePermitDraft(JSON.stringify(session))); setNotice("Uw bevestigde antwoorden zijn bewaard op dit apparaat. Een volgende gebruiker van dit apparaat kan ze openen."); }
+    catch { setError("Bewaren is niet gelukt. Download uw overzicht om de antwoorden te behouden."); }
+  }
   function exportAnswers() {
-    if (!result || !address) return;
-    downloadText("plan-bouw-vergunningvoorbereiding.txt", ["PLAN BOUW — Vergunningvoorbereiding", `Datum: ${new Date().toLocaleDateString("nl-NL")}`, `Adres: ${address.label}`, `Werkzaamheden: ${selectedWorks.map((work) => work.label).join("; ")}`, `Route: ${mode === "check" ? "Vergunningcheck" : "Aanvraag voorbereiden"}`, "", "VRAGEN EN ANTWOORDEN", ...history.map((entry) => `${entry.question.title}\n${formatDsoAnswer(entry.question, entry.value)}\n`), "UITKOMSTEN", ...result.conclusions.map((conclusion) => `${conclusion.title}: ${conclusion.text}${conclusion.warning ? `\n${conclusion.warning}` : ""}`), "", "Dit document is een voorbereiding. Er is geen vergunningaanvraag ingediend. De check gebruikt het adrespunt en alleen de geselecteerde werkzaamheden. Controleer de exacte werklocatie, overige werkzaamheden en uitkomsten in het Omgevingsloket. Antwoorden worden niet automatisch overgenomen in het Omgevingsloket.", testEnvironment ? "LET OP: deze gegevens komen uit de testomgeving en zijn niet geschikt voor een echte vergunningcheck." : ""].join("\n"));
+    const lines = ["BOUWAANHUIS — Vergunningdossier", `Datum: ${new Date().toLocaleString("nl-NL")}`, `Adres: ${session.address?.label ?? "Nog niet gekozen"}`, `Werklocatie (RD): ${JSON.stringify(session.geometry)}`, testEnvironment ? "TESTOMGEVING — geen geldige check voor uw echte bouwplan" : "Productieomgeving", ""];
+    for (const mode of ["check", "application"] as const) {
+      const data = session[mode]; if (!data.works.length) continue;
+      lines.push(mode === "check" ? "VERGUNNINGCHECK" : "AANVRAAGVOORBEREIDING", ...data.works.map((work) => work.label), "", ...data.history.map((entry) => `${entry.question.title}\n${formatDsoAnswer(entry.question, entry.value)}\n`), ...(data.result?.conclusions.map((c) => `${c.title}: ${c.text}${c.warning ? `\n${c.warning}` : ""}`) ?? []), ...(data.result?.notices ?? []), "Benodigde bijlagen:", ...(data.result?.attachmentDetails.map((a) => `${a.title}${a.required ? " (verplicht)" : " (optioneel)"}`) ?? []), "");
+    }
+    lines.push("Er is geen aanvraag ingediend. De uitkomst geldt alleen voor de gekozen werklocatie en werkzaamheden. Een los geopend Omgevingsloket neemt deze antwoorden niet automatisch over.");
+    downloadText("bouwaanhuis-vergunningdossier.txt", lines.join("\n"));
   }
+  function close() {
+    operation.current?.abort(); operation.current = null; setBusy(false);
+    const check = session.check;
+    const context = { postcode: session.postcode, houseNumber: initialContext?.houseNumber.match(/^\d+/)?.[0] === session.houseNumber ? initialContext.houseNumber : session.houseNumber };
+    if (session.address) onResult?.(check.result && !unansweredQuestions(check.result, check.history).length ? [testEnvironment ? "TESTOMGEVING — niet geschikt als vergunningcheck." : "Uitkomst vergunningcheck", session.address.label, ...check.result.conclusions.map((c) => `${c.title}: ${c.text}${c.warning ? ` — ${c.warning}` : ""}`), checkIsComplete(check.result, check.history) ? "" : "Onvolledige check; aanvullende beoordeling nodig.", session.geometry?.type === "Polygon" ? "Voor het getekende werkgebied en de gekozen werkzaamheden." : "Alleen voor het gekozen punt en de gekozen werkzaamheden.", "Er is geen aanvraag ingediend."].filter(Boolean).join("\n") : "", context);
+    onClose();
+  }
+  const titles: Record<PermitStage, string> = { intro: "Duidelijkheid over uw vergunning.", location: "Waar wilt u verbouwen?", works: "Wat gaat u doen?", questions: "Vertel ons over uw plannen.", result: session.mode === "check" ? "Dit betekent het voor uw plannen." : "Uw aanvraagvoorbereiding." };
+  const stepIndex = stageIds.indexOf(session.stage);
 
-  const supportedQuestion = !currentQuestion || ["boolean", "numeriek", "lijstwaarde", "datum", "string"].includes(currentQuestion.type);
-
-  return <dialog className="modal permit-modal" ref={dialogRef} onClose={onClose} aria-labelledby="permit-dialog-title"><button className="modal-close" onClick={onClose} aria-label="Vergunninghulp sluiten"><Icon name="close" size={21} /></button><div className="modal-body"><p className="eyebrow"><span /> UW VERGUNNING, STAP VOOR STAP</p><h2 id="permit-dialog-title">Een goed plan begint<br />met duidelijkheid.</h2>
-    {available === null && <p className="status-loading" role="status">We controleren de verbinding met het Omgevingsloket…</p>}
-    {available === false && <><p>Of u een vergunning nodig heeft, hangt af van uw plannen én de locatie van uw woning. De officiële Vergunningcheck helpt u op weg.</p><div className="permit-status-note"><Icon name="shield" size={23} /><div><strong>Ga verder via het Omgevingsloket</strong><p>De vragenlijst op deze website is nog niet beschikbaar. U kunt uw plannen nu al controleren en een aanvraag starten op de officiële website.</p></div></div><div className="permit-modal-actions"><a className="button button-bordeaux" href={checkUrl} target="_blank" rel="noopener noreferrer">Heb ik een vergunning nodig? <Icon name="arrow-up" size={17} /></a><a className="button button-outline" href={applicationUrl} target="_blank" rel="noopener noreferrer">Een vergunning aanvragen <Icon name="arrow-up" size={17} /></a></div><p className="fine-print">Het Omgevingsloket opent in een nieuw tabblad. Een aanvraag wordt pas ingediend nadat u deze daar zelf afrondt.</p></>}
-    {available && <div key={stage} className="permit-step form-step-enter">
-      {testEnvironment && <p className="error-notice" role="status">Dit is de DSO-testomgeving. De antwoorden zijn niet geschikt voor een echte vergunningcheck of aanvraag.</p>}
-      {stage === "start" && <><p>Wilt u weten wat er nodig is, of weet u al dat u een aanvraag wilt voorbereiden?</p><div className="permit-modal-actions"><button className="button button-bordeaux" onClick={() => reset("check")}>Ik wil een vergunningcheck <Icon name="arrow" size={17} /></button><button className="button button-outline" onClick={() => reset("application")}>Ik wil mijn aanvraag voorbereiden <Icon name="file" size={17} /></button></div><p className="fine-print">We halen de officiële vragen op. Uw aanvraag dient u daarna zelf in via het Omgevingsloket.</p></>}
-      {stage !== "start" && <p className="permit-form-note">{mode === "check" ? "Vergunningcheck" : "Aanvraag voorbereiden"} · {stage === "address" ? "Stap 1: uw adres" : stage === "works" ? "Stap 2: uw werkzaamheden" : "Stap 3: de officiële vragen"}</p>}
-      {stage === "address" && <><form className="permit-form" onSubmit={(event) => { event.preventDefault(); runRequest(async () => { const data = await requestDso<{ addresses: Address[] }>({ action: "address", postcode, houseNumber }); setAddresses(data.addresses); setAddress(null); if (!data.addresses.length) setError("Geen adres gevonden. Controleer de postcode en het huisnummer."); }); }}><div className="address-fields"><label>Postcode<input autoComplete="postal-code" placeholder="1234 AB" required pattern="[1-9][0-9]{3}\s?[a-zA-Z]{2}" maxLength={7} value={postcode} onChange={(event) => { setPostcode(event.target.value); setAddresses([]); setAddress(null); }} /></label><label>Huisnummer<input inputMode="numeric" placeholder="12" required pattern="[1-9][0-9]{0,4}" maxLength={5} value={houseNumber} onChange={(event) => { setHouseNumber(event.target.value); setAddresses([]); setAddress(null); }} /></label></div><p className="permit-form-note">Vul het huisnummer zonder toevoeging in. Selecteer daarna uw volledige adres. Uw adres wordt hiervoor gedeeld met PDOK.</p><button className="button button-navy" disabled={busy} type="submit">{busy ? "Adres opzoeken…" : "Zoek mijn adres"}<Icon name="pin" size={17} /></button></form>{addresses.length > 0 && <div className="permit-form"><fieldset className="dso-question"><legend>Selecteer en bevestig uw adres</legend><div className="permit-search-list">{addresses.map((item) => <label key={item.id}><input type="radio" name="address" checked={address?.id === item.id} onChange={() => { setAddress(item); clearQuestions(); setWorks([]); setSelectedWorks([]); setNextPage(null); setSearched(false); }} />{item.label}</label>)}</div></fieldset><p className="permit-form-note">Deze check gebruikt het adrespunt. Voor werk achter op uw perceel of meerdere werklocaties moet u ook de exacte locatie op de kaart van het Omgevingsloket controleren.</p><button className="button button-bordeaux" disabled={!address || busy} onClick={() => { setStage("works"); setError(""); }}>Dit is mijn adres <Icon name="arrow" size={17} /></button></div>}</>}
-      {stage === "works" && <>{address && <div className="selected-address"><Icon name="pin" size={17} />{address.label}</div>}<form className="permit-form" onSubmit={(event) => { event.preventDefault(); findWorks(); }}><label>Welke werkzaamheden gaat u uitvoeren?<input value={query} minLength={2} maxLength={150} required placeholder={mode === "application" ? "Bijvoorbeeld: bouwactiviteit of slopen" : "Bijvoorbeeld: uitbouw, dakkapel of slopen"} onChange={(event) => { setQuery(event.target.value); setSearched(false); }} /></label><button className="button button-navy" type="submit" disabled={busy}>{busy ? "Werkzaamheden zoeken…" : "Zoek officiële werkzaamheden"}<Icon name="arrow" size={17} /></button></form>{works.length > 0 && <div className="permit-form"><fieldset className="dso-question"><legend>Selecteer wat u gaat doen. Meerdere keuzes zijn mogelijk.</legend><div className="permit-search-list">{works.map((work) => <label key={work.ref}><input type="checkbox" checked={selectedWorks.some((selected) => selected.ref === work.ref)} onChange={(event) => { setSelectedWorks(event.target.checked ? [...selectedWorks, work] : selectedWorks.filter((selected) => selected.ref !== work.ref)); clearQuestions(); }} />{work.label}{work.permission ? ` · ${work.permission}` : ""}</label>)}</div></fieldset><p className="permit-form-note">{selectedWorks.length} geselecteerd. Controleer alle werkzaamheden die bij uw plan horen; deze lijst is gebaseerd op uw zoekterm.{mode === "application" ? " Aanvraagactiviteiten zijn gefilterd op uw bevestigde adrespunt." : ""}</p>{nextPage && searched && <button className="back-link" type="button" disabled={busy} onClick={() => findWorks(nextPage)}>Meer resultaten laden</button>}{selectedWorks.length > 20 && <p className="error-notice">Selecteer maximaal 20 werkzaamheden per check.</p>}<button className="button button-bordeaux" disabled={!selectedWorks.length || busy || selectedWorks.length > 20} onClick={() => executeQuestions()}>{busy ? "Officiële vragen ophalen…" : "Naar de officiële vragen"}<Icon name="arrow" size={17} /></button></div>}{searched && works.length === 0 && <p className="error-notice">Geen werkzaamheden gevonden. {mode === "application" ? "Aanvragen gebruiken officiële activiteitnamen. Zoek bijvoorbeeld op ‘bouwactiviteit’ in plaats van ‘uitbouw’, of gebruik het Omgevingsloket." : "Probeer een andere zoekterm of gebruik het Omgevingsloket."}</p>}<button className="back-link" disabled={busy} onClick={() => { setStage("address"); setError(""); }}>← Wijzig uw adres</button></>}
-      {stage === "questions" && result && <>
-        {address && <div className="selected-address"><Icon name="pin" size={17} />{address.label}</div>}
-        {result.hasMissingData && <div className="error-notice">Voor één of meer werkzaamheden zijn de officiële gegevens niet compleet. Er kan nog geen volledige conclusie worden getrokken. Controleer uw plannen in het Omgevingsloket of bij uw gemeente.</div>}
-        {!currentQuestion && history.some((entry) => !entry.value.trim()) && <p className="error-notice" role="status">U heeft vragen overgeslagen. Daardoor kan de uitkomst onvolledig zijn. Vul deze antwoorden aan of controleer uw plan in het Omgevingsloket.</p>}
-        {result.conclusions.length > 0 && !dirty && !currentQuestion && <div className="dso-results" aria-live="polite">{result.conclusions.map((conclusion, index) => <div className="dso-result" key={`${conclusion.title}-${index}`}><h3>{conclusion.title}</h3><p>{conclusion.text}</p>{conclusion.warning && <small>{conclusion.warning}</small>}{Boolean(conclusion.helpIds?.length) && <QuestionHelp ids={conclusion.helpIds!} label="Uitleg en vervolgstappen bij deze uitkomst" />}</div>)}</div>}
-        {mode === "application" && !dirty && !currentQuestion && <div className="permit-status-note"><Icon name="file" size={22} /><div><strong>{result.ready && !result.hasMissingData ? "De beantwoorde set voldoet aan de indieningsvereisten." : "Uw aanvraag is in voorbereiding."}</strong><p>{result.complete ? "Deze vragenset is compleet. " : "Vul de resterende gegevens aan. "}Er is nog niets ingediend. Controleer uw volledige plan, bijlagen en persoonsgegevens in het Omgevingsloket.</p></div></div>}
-        {currentQuestion && supportedQuestion && <form className="permit-form question-step" onSubmit={(event) => { event.preventDefault(); executeQuestions(currentQuestion); }}>
-          <div className="question-progress"><span>{editingKey ? "Antwoord wijzigen" : `Vraag ${history.length + 1}`}</span><p>We controleren na ieder antwoord welke vragen nog nodig zijn.</p></div>
-          {editingKey && <p className="permit-form-note">Wijzigt u dit antwoord? Dan controleren we de vervolgvragen opnieuw. Eerdere antwoorden blijven bewaard.</p>}
-          <QuestionField key={currentQuestion.key} question={currentQuestion} value={answers[currentQuestion.key] ?? currentQuestion.prefilled} disabled={busy} focusRef={questionRef} onChange={(value) => { setAnswers((current) => ({ ...current, [currentQuestion.key]: value })); setDirty(true); }} />
-          <div className="question-actions"><button className="button button-bordeaux" type="submit" disabled={busy}>{busy ? "Vervolgvragen ophalen…" : "Volgende vraag"}<Icon name="arrow" size={17} /></button>{!currentQuestion.required && <button className="back-link" type="button" disabled={busy} onClick={() => executeQuestions(currentQuestion, true)}>Deze vraag overslaan</button>}</div>
-          <p className="permit-form-note">Niet-relevante vragen worden automatisch overgeslagen. Vragen met * zijn verplicht.</p>
-        </form>}
-        {!supportedQuestion && <p className="error-notice">Deze vraag kunt u alleen in het Omgevingsloket beantwoorden. U kunt daar verdergaan.</p>}
-        {history.length > 0 && <details className="answer-history"><summary>Uw antwoorden ({history.length})</summary><ol>{history.map((entry) => <li key={entry.question.key}><div><strong>{entry.question.title}</strong><span>{formatDsoAnswer(entry.question, entry.value)}</span></div><button className="back-link" type="button" disabled={busy} aria-label={`Wijzig antwoord: ${entry.question.title}`} onClick={() => editAnswer(entry)}>Wijzig</button></li>)}</ol></details>}
-        {!currentQuestion && !result.conclusions.length && mode === "check" && <p className="error-notice">Er is geen conclusie beschikbaar voor deze selectie. Ga verder via het Omgevingsloket; dit betekent niet dat u vergunningvrij mag bouwen.</p>}
-        {!currentQuestion && result.attachments.length > 0 && <div className="permit-status-note"><Icon name="file" size={22} /><div><strong>Benodigde bijlagen</strong><p>{result.attachments.join(" · ")}. Voeg deze bijlagen toe in het Omgevingsloket.</p></div></div>}
-        {!currentQuestion && <div className="permit-modal-actions"><button className="button button-outline" onClick={exportAnswers} disabled={dirty || busy}><Icon name="download" size={16} /> Download uw voorbereiding</button>{mode === "check" && <button className="button button-outline" disabled={busy} onClick={prepareApplication}>Aanvraag voorbereiden <Icon name="arrow" size={16} /></button>}<a className="button button-navy" href={mode === "check" ? checkUrl : applicationUrl} target="_blank" rel="noopener noreferrer">{mode === "check" ? "Controleer uw volledige plan" : "Aanvraag afronden in het Omgevingsloket"}<Icon name="arrow-up" size={17} /></a></div>}<p className="fine-print">Alleen de geselecteerde werkzaamheden en het adrespunt zijn gecontroleerd. Uw antwoorden worden niet automatisch overgenomen in het Omgevingsloket. Er is nog geen aanvraag ingediend.</p><button className="back-link" disabled={busy} onClick={() => { setStage("works"); setError(""); }}>← Wijzig uw werkzaamheden</button>
+  return <dialog ref={dialog} className="modal permit-modal permit-v2" onCancel={(event) => { event.preventDefault(); close(); }} onClose={() => { if (open) close(); }} aria-labelledby="permit-dialog-title">
+    <button className="modal-close" type="button" onClick={close} aria-label="Vergunninghulp sluiten"><Icon name="close" size={21} /></button>
+    <div className="permit-layout"><aside className="permit-sidebar"><span className="permit-brand"><Icon name="house" size={26} /> bouwaanhuis</span><h2>Een goed plan.<br />Ook op papier.</h2><p>De officiële vragen, met overzicht bij elke stap.</p><ol aria-label="Stappen van uw vergunningcheck">{stageLabels.map((label, index) => <li key={label} className={stepIndex === index ? "active" : stepIndex > index ? "done" : ""} aria-current={stepIndex === index ? "step" : undefined}><span>{stepIndex > index ? <Icon name="check" size={14} /> : index + 1}</span>{label}</li>)}</ol><div className="permit-sidebar-note"><Icon name="shield" size={22} /><p>Gebaseerd op de regels van het Omgevingsloket voor uw locatie.</p></div></aside>
+    <div className="modal-body permit-content"><p className="eyebrow"><span /> {session.mode === "check" ? "UW VERGUNNINGCHECK" : "UW AANVRAAG VOORBEREIDEN"}</p><h2 id="permit-dialog-title" ref={heading} tabIndex={-1}>{titles[session.stage]}</h2>
+      {testEnvironment && <p className="permit-test-banner" role="status">Testomgeving · U oefent met testgegevens. De uitkomst is niet geschikt voor een echte verbouwing.</p>}
+      {connection === null && <p role="status" className="status-loading">Verbinding met het Omgevingsloket controleren…</p>}
+      {connection?.available === false && <div className="permit-status-note"><Icon name="shield" size={22} /><div><strong>De verbinding is nu niet beschikbaar.</strong><p>Uw antwoorden blijven in dit venster. U kunt uw dossier downloaden of de officiële check openen.</p><a className="text-link" href={checkUrl} target="_blank" rel="noopener noreferrer">Open de officiële Vergunningcheck <Icon name="arrow-up" size={16} /></a></div></div>}
+      {session.stage === "intro" && <><p className="permit-lead">Ontdek welke regels voor uw verbouwing gelden. Kies uw locatie en werkzaamheden; daarna krijgt u alleen de vragen die daarbij horen.</p><div className="permit-intro-steps"><span><Icon name="pin" size={21} /> Uw werklocatie</span><span><Icon name="file" size={21} /> Gerichte vragen</span><span><Icon name="check" size={21} /> Een helder vervolg</span></div><button className="button button-bordeaux" disabled={!connection?.available} onClick={() => begin("check")}>Start mijn vergunningcheck <Icon name="arrow" size={18} /></button><details className="permit-application-entry"><summary>Ik weet al dat ik een aanvraag moet voorbereiden</summary><p>U kunt hier de officiële aanvraagvragen invullen. Rechtstreeks indienen via bouwaanhuis is nog niet beschikbaar. Een nieuw tabblad van het Omgevingsloket neemt uw antwoorden niet over.</p><button className="button button-outline" disabled={!connection?.available} onClick={() => begin("application")}>Aanvraag voorbereiden</button></details></>}
+      {session.stage === "intro" && saved && <div className="permit-resume"><strong>Verder met uw bewaarde dossier?</strong><p>{saved.address?.label}</p><div className="permit-modal-actions"><button className="button button-outline" disabled={busy || !connection?.available} onClick={() => { if (saved.environment !== connection?.environment) { setError("Dit dossier hoort bij een andere DSO-omgeving. Start een nieuwe check."); return; } if (saved[saved.mode].works.length) void evaluate(saved); else setSession(saved); }}>Hervatten en opnieuw controleren</button><button className="back-link" onClick={() => { try { localStorage.removeItem(permitStorageKey); setSaved(null); } catch { setError("De bewaarde check kon niet worden verwijderd."); } }}>Bewaard dossier verwijderen</button></div></div>}
+      {session.stage !== "intro" && <>
+        {session.address && session.stage !== "location" && <div className="permit-context"><Icon name="pin" size={18} /><div><strong>{session.address.label}</strong><span>{session.geometry?.type === "Polygon" ? "Getekend werkgebied" : "Gekozen locatiepunt"}</span></div><button className="back-link" disabled={busy} onClick={() => go("location")}>Wijzig</button></div>}
+        {session.mode === "application" && <div className="permit-submission-notice"><strong>Voorbereiden kan; rechtstreeks indienen is nog niet aangesloten.</strong><p>Uw antwoorden worden gecontroleerd en blijven in uw dossier. Er wordt hiermee geen aanvraag verstuurd. In het Omgevingsloket moet u deze gegevens zelf overnemen.</p><button className="back-link" disabled={busy} onClick={() => { setSession((s) => ({ ...s, mode: "check", stage: s.check.result ? unansweredQuestions(s.check.result, s.check.history).length ? "questions" : "result" : "works" })); setDraftValue(null); setEditingKey(null); }}>Terug naar mijn vergunningcheck</button></div>}
+        {session.stage === "location" && <><form className="permit-form" onSubmit={(event) => { event.preventDefault(); void run(async (signal) => { const data = await requestDso<{ addresses: Address[] }>({ action: "address", postcode: session.postcode, houseNumber: session.houseNumber }, signal); if (!signal.aborted) { setAddresses(data.addresses); if (!data.addresses.length) setError("Geen adres gevonden. Controleer uw postcode en huisnummer."); } }); }}><fieldset disabled={busy}><div className="address-fields"><label>Postcode<input autoComplete="postal-code" required pattern="[1-9][0-9]{3}\s?[a-zA-Z]{2}" maxLength={7} placeholder="1234 AB" value={session.postcode} onChange={(e) => changeAddressField("postcode", e.target.value)} /></label><label>Huisnummer<input inputMode="numeric" required pattern="[1-9][0-9]{0,4}" maxLength={5} placeholder="12" value={session.houseNumber} onChange={(e) => changeAddressField("houseNumber", e.target.value)} /></label></div><p className="permit-form-note">Zonder toevoeging. Kies daarna uw volledige adres. We zoeken uw adres op bij PDOK.</p><button className="button button-outline" type="submit">{busy ? "Adres zoeken…" : "Zoek mijn adres"} <Icon name="pin" size={17} /></button></fieldset></form>
+        {addresses.length > 0 && <fieldset className="dso-question permit-address-options" disabled={busy}><legend>Kies uw volledige adres</legend><div className="permit-search-list">{addresses.map((item) => <label key={item.id}><input type="radio" name="permit-address" checked={item.id === session.address?.id} onChange={() => chooseAddress(item)} />{item.label}</label>)}</div></fieldset>}
+        {session.address && <><PermitLocation key={session.address.id} address={session.address} geometry={session.geometry} onChange={(geometry) => { setSession((s) => ({ ...s, geometry, locationConfirmed: false, check: emptyFlow(), application: emptyFlow() })); setSearchResults([]); setSearchedQuery(""); setNextPage(null); }} /><label className="permit-confirm"><input type="checkbox" disabled={!session.geometry} checked={session.locationConfirmed} onChange={(e) => setSession((s) => ({ ...s, locationConfirmed: e.target.checked }))} />Dit is de locatie waarvoor ik de werkzaamheden wil controleren.</label><button className="button button-bordeaux" disabled={!session.locationConfirmed || busy || !connection?.available} onClick={() => go("works")}>Naar mijn werkzaamheden <Icon name="arrow" size={18} /></button></>}
+        </>}
+        {session.stage === "works" && <><p className="permit-lead">Een verbouwing kan uit meerdere werkzaamheden bestaan. Denk bij een uitbouw ook aan slopen, een gevel aanpassen of een boom verwijderen.</p><form className="permit-form" onSubmit={(e) => { e.preventDefault(); void findWorks(); }}><label>Zoek een werkzaamheid<input value={query} minLength={2} maxLength={150} required onChange={(e) => setQuery(e.target.value)} placeholder={session.mode === "check" ? "Bijvoorbeeld dakkapel" : "Bijvoorbeeld bouwactiviteit"} disabled={busy} /></label><button className="button button-outline" type="submit" disabled={busy || !connection?.available}>{busy ? "Zoeken…" : "Zoek werkzaamheden"}<Icon name="arrow" size={17} /></button></form><div className="permit-suggestions" aria-label="Veelgezochte werkzaamheden">{(session.mode === "check" ? ["Uitbouw", "Dakkapel", "Dakopbouw", "Slopen", "Kozijnen"] : ["Bouwactiviteit", "Slopen"]).map((term) => <button type="button" disabled={busy} key={term} onClick={() => void findWorks(term)}>{term}</button>)}</div>
+        {flow.works.length > 0 && <div className="permit-selected"><strong>In uw {session.mode === "check" ? "check" : "voorbereiding"} ({flow.works.length})</strong>{flow.works.map((work) => <div key={work.ref}><span>{work.label}</span><button type="button" className="back-link" disabled={busy} onClick={() => toggleWork(work)} aria-label={`Verwijder ${work.label}`}><Icon name="close" size={16} /></button></div>)}</div>}
+        {searchResults.length > 0 && <fieldset className="dso-question" disabled={busy}><legend>Resultaten voor ‘{searchedQuery}’</legend><div className="permit-search-list">{searchResults.map((work) => <label key={work.ref}><input type="checkbox" checked={flow.works.some((item) => item.ref === work.ref)} onChange={() => toggleWork(work)} /><span>{work.label}{work.permission && <small>{work.permission}</small>}</span></label>)}</div></fieldset>}
+        {searchedQuery && !searchResults.length && <p className="permit-form-note">Geen resultaten voor ‘{searchedQuery}’. Gebruik een algemenere term{session.mode === "application" ? ", zoals ‘bouwactiviteit’" : ""}.</p>}
+        {nextPage && <button className="back-link" disabled={busy} onClick={() => void findWorks(searchedQuery, nextPage)}>Meer resultaten</button>}
+        <div className="permit-step-actions"><button className="back-link" disabled={busy} onClick={() => go("location")}>← Locatie</button><button className="button button-bordeaux" disabled={busy || !connection?.available || !flow.works.length || flow.works.length > 20} onClick={() => void evaluate(session)}>{busy ? "Vragen ophalen…" : flow.history.length ? "Verder met mijn antwoorden" : "Naar de vragen"}<Icon name="arrow" size={18} /></button></div>{flow.works.length > 20 && <p className="error-notice">Kies maximaal 20 werkzaamheden per check.</p>}
+        </>}
+        {session.stage === "questions" && currentQuestion && <><div className="permit-question-context"><span>{currentQuestion.activity}</span><strong>{currentQuestion.group || "Uw plannen"}</strong></div><p className="permit-form-note">{flow.history.filter((entry) => entry.value.trim()).length} antwoorden bevestigd · De vervolgvragen passen zich aan uw antwoorden aan.</p>{editingKey && <p className="permit-edit-note">Als u dit antwoord wijzigt, vragen we de antwoorden daarna opnieuw. Zo blijven alleen antwoorden bij uw huidige plan over.</p>}<form className="permit-form question-step" onSubmit={(e) => { e.preventDefault(); answer(currentQuestion); }}><QuestionField key={currentQuestion.key} question={currentQuestion} value={currentValue} disabled={busy} focusRef={questionField} onChange={setDraftValue} />{currentQuestion.prefilled && draftValue === null && !editingKey && <p className="permit-form-note">Deze waarde is ingevuld vanuit de officiële gegevens. Controleer of die klopt.</p>}<div className="question-actions"><button className="button button-bordeaux" disabled={busy || !connection?.available} type="submit">{busy ? "Antwoord controleren…" : "Bevestig en ga verder"}<Icon name="arrow" size={18} /></button>{!currentQuestion.required && <button className="back-link" type="button" disabled={busy || !connection?.available} onClick={() => answer(currentQuestion, true)}>Weet ik nog niet · overslaan</button>}</div></form><div className="permit-step-actions">{editingKey ? <button className="back-link" disabled={busy} onClick={() => { setEditingKey(null); setDraftValue(null); if (!pending.length) go("result"); }}>Wijziging annuleren</button> : flow.history.length > 0 ? <button className="back-link" disabled={busy} onClick={() => edit(flow.history.at(-1)!)}>← Vorige vraag</button> : <button className="back-link" disabled={busy} onClick={() => go("works")}>← Werkzaamheden</button>}</div></>}
+        {session.stage === "result" && flow.result && <PermitResults mode={session.mode} result={flow.result} history={flow.history} testEnvironment={testEnvironment} busy={busy} onPrepare={prepareApplication} onDownload={exportAnswers} onRecheck={() => void evaluate(session)} onDependencies={flow.result.dependencies.some((ref) => !flow.works.some((work) => work.ref === ref)) ? () => { const dependencies = flow.result!.dependencies.filter((ref) => !flow.works.some((work) => work.ref === ref)); if (dependencies.length + flow.works.length > 100) { setError("Voor dit plan zijn te veel gerelateerde activiteiten nodig. Vervolg uw check in het Omgevingsloket."); return; } void evaluate(session, flow.history, [...flow.works, ...dependencies.map((ref, index) => ({ ref, label: `Gerelateerde werkzaamheid ${index + 1}` }))]); } : undefined} />}
+        {flow.history.length > 0 && session.stage !== "location" && <details className="answer-history"><summary>Uw bevestigde antwoorden ({flow.history.length})</summary><ol>{flow.history.map((entry) => <li key={entry.question.key}><div><strong>{entry.question.title}</strong><span>{formatDsoAnswer(entry.question, entry.value)}</span></div><button className="back-link" type="button" disabled={busy} onClick={() => edit(entry)} aria-label={`Wijzig antwoord: ${entry.question.title}`}>Wijzig</button></li>)}</ol></details>}
+        {session.stage === "result" && <button className="back-link" disabled={busy} onClick={() => go("works")}>← Werkzaamheden aanpassen</button>}
+        <div className="permit-save-row"><button className="text-link" disabled={busy || !session.geometry || !session.environment} onClick={save}><Icon name="file" size={17} /> Bewaar mijn dossier</button><button className="back-link" disabled={busy} onClick={() => setRestart(true)}>Nieuwe check</button></div><p className="permit-form-note">Bewaren slaat uw bevestigde antwoorden op dit apparaat op. Zonder bewaren blijven ze alleen in dit venster.</p>
       </>}
-    </div>}
-    {error && <p className="error-notice" role="alert">{error}</p>}
-    {available && stage !== "start" && <a className="text-link" href={mode === "check" ? checkUrl : applicationUrl} target="_blank" rel="noopener noreferrer">Liever verder in het Omgevingsloket? <Icon name="arrow-up" size={15} /></a>}
-  </div></dialog>;
+      {restart && <div className="permit-restart" role="alert"><strong>Een nieuwe check starten?</strong><p>De antwoorden in dit venster worden gewist. Een bewaard dossier blijft beschikbaar.</p><div className="permit-modal-actions"><button className="button button-outline" onClick={() => setRestart(false)}>Terug</button><button className="button button-bordeaux" onClick={() => { setSession({ ...newPermitSession(initialContext), environment: connection?.environment ?? null }); setAddresses([]); setSearchResults([]); setSearchedQuery(""); setNextPage(null); setEditingKey(null); setDraftValue(null); setRestart(false); setError(""); setNotice(""); }}>Start opnieuw</button></div></div>}
+      {notice && <p className="permit-notice" role="status">{notice}</p>}{error && <p className="error-notice" role="alert">{error}</p>}
+      <p className="permit-footer-note">Uw locatie, werkzaamheden en bevestigde antwoorden worden voor deze beoordeling met het Omgevingsloket gedeeld. Een check is geen ingediende aanvraag.</p>
+    </div></div>
+  </dialog>;
 }

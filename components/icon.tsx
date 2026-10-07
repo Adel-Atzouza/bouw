@@ -34,7 +34,7 @@ export function Icon({ name, size = 24, className, style }: { name: IconName; si
 }
 
 export function Logo() {
-  return <a className="brand" href="#" aria-label="Plan Bouw — naar de homepage">
+  return <a className="brand" href="#" aria-label="bouwaanhuis — naar de homepage">
     <Image src={logoImage} alt={"Bouwaanhuis logo"} width="132" height="132" draggable={false} />
   </a>
 }

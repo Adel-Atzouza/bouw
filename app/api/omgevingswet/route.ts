@@ -1,4 +1,5 @@
 import { normalizeDsoResponse, plainText, type DsoMode, type DsoReference } from "@/lib/dso";
+import { validCoordinates, validGeometry } from "@/lib/dso-geometry";
 
 export const dynamic = "force-dynamic";
 
@@ -46,10 +47,6 @@ async function dsoFetch(path: string, body?: unknown, accept = "application/json
   return response.json();
 }
 
-function validCoordinates(value: unknown): value is [number, number] {
-  return Array.isArray(value) && value.length === 2 && value.every((coordinate) => typeof coordinate === "number" && Number.isFinite(coordinate)) && value[0] >= -7000 && value[0] <= 300000 && value[1] >= 289000 && value[1] <= 630000;
-}
-
 function validReferences(value: unknown): value is DsoReference[] {
   return Array.isArray(value) && value.length > 0 && value.length <= 100 && value.every((reference) =>
     reference && typeof reference === "object" && typeof reference.functioneleStructuurRef === "string" && /^https?:\/\/toepasbare-regels\.omgevingswet\.overheid\.nl\//.test(reference.functioneleStructuurRef) && reference.functioneleStructuurRef.length <= 1000 &&
@@ -62,7 +59,7 @@ export async function GET() {
     const environment = dsoEnvironment();
     if (!process.env.DSO_API_KEY?.trim()) return respond({ available: false, environment, officialUrl });
     await dsoFetch("/zoekinterface/v2/werkzaamheden/_zoek?pageSize=10", { zoekterm: "bouwen", sortering: "besteMatch" }, "application/hal+json");
-    return respond({ available: true, environment, officialUrl });
+    return respond({ available: true, environment, officialUrl, submission: { available: false, reason: "not_connected" } });
   } catch (error) {
     return respond({ available: false, environment: null, error: error instanceof Error ? error.message : "De DSO-verbinding is niet goed ingesteld.", officialUrl }, 503);
   }
@@ -70,7 +67,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return respond({ error: "Dit verzoek komt niet van deze website." }, 403);
+  // Next can normalize request.url to localhost while the browser uses 127.0.0.1.
+  // Host is the actual host addressed by the browser; never accept a forwarded
+  // host supplied by the caller as a substitute for this same-origin check.
+  const requestUrl = new URL(request.url);
+  const host = request.headers.get("host") ?? requestUrl.host;
+  const protocol = request.headers.get("x-forwarded-proto")?.split(",")[0].trim() ?? requestUrl.protocol.slice(0, -1);
+  if (origin && origin !== `${protocol}://${host}`) return respond({ error: "Dit verzoek komt niet van deze website." }, 403);
   let body: Record<string, unknown>;
   try {
     const text = await request.text();
@@ -103,6 +106,7 @@ export async function POST(request: Request) {
       return respond({ addresses });
     }
 
+    if (body.action === "submit") return respond({ error: "Rechtstreeks indienen is nog niet aangesloten. Er is geen aanvraag ingediend. Uw antwoorden blijven beschikbaar voor downloaden.", code: "DSO_SUBMISSION_NOT_CONNECTED" }, 503);
     if (!["search", "execute", "help"].includes(String(body.action))) return respond({ error: "Onbekende handeling." }, 400);
     if (!process.env.DSO_API_KEY?.trim()) return respond({ error: "De vergunninghulp is nog niet verbonden met het Omgevingsloket. U kunt de officiële Vergunningcheck gebruiken.", code: "DSO_NOT_CONFIGURED", officialUrl }, 503);
 
@@ -113,8 +117,9 @@ export async function POST(request: Request) {
       const collection = body.mode === "application" ? "activiteiten" : "werkzaamheden";
       let locations: string[] | undefined;
       if (body.mode === "application") {
-        if (!validCoordinates(body.coordinates)) return respond({ error: "Bevestig uw adres voordat u aanvraagactiviteiten zoekt." }, 400);
-        const locationData = await dsoFetch("/toepasbaaropvragen/v7/locatieidentificaties/_zoek", { geo: { geometrie: { type: "Point", coordinates: body.coordinates }, spatialOperator: "intersects" } }, "application/hal+json", "omgevingsdocumenten");
+        const geometry = body.geometry ?? { type: "Point", coordinates: body.coordinates };
+        if (!validGeometry(geometry)) return respond({ error: "Bevestig uw werklocatie voordat u aanvraagactiviteiten zoekt." }, 400);
+        const locationData = await dsoFetch("/toepasbaaropvragen/v7/locatieidentificaties/_zoek", { geo: { geometrie: geometry, spatialOperator: "intersects" } }, "application/hal+json", "omgevingsdocumenten");
         locations = locationData._embedded?.locatieidentificaties;
         if (!Array.isArray(locations) || locations.some((location) => typeof location !== "string") || locations.length > 10000) throw new Error("De locaties voor uw adres konden niet volledig worden bepaald. Probeer opnieuw of gebruik de kaart van het Omgevingsloket.");
         if (!locations.length) return respond({ works: [], nextPage: null });
@@ -130,12 +135,13 @@ export async function POST(request: Request) {
       return respond({ text: typeof data.toelichting === "string" ? data.toelichting : "" });
     }
 
-    if (!validCoordinates(body.coordinates) || !validReferences(body.references) || !["check", "application"].includes(String(body.mode))) return respond({ error: "Selecteer een geldig adres en werkzaamheden en controleer uw antwoorden." }, 400);
+    const geometry = body.geometry ?? { type: "Point", coordinates: body.coordinates };
+    if (!validGeometry(geometry) || !validReferences(body.references) || !["check", "application"].includes(String(body.mode))) return respond({ error: "Selecteer een geldige werklocatie en werkzaamheden en controleer uw antwoorden." }, 400);
     const mode = body.mode as DsoMode;
     const path = mode === "application" ? "indieningsvereisten" : "conclusie";
     const data = await dsoFetch(`/toepasbareregelsuitvoerenservices/v3/${path}/_bepaal`, {
       functioneleStructuurRefs: body.references,
-      _geo: { intersects: { type: "Point", coordinates: body.coordinates } },
+      _geo: { intersects: geometry },
       ...(mode === "application" ? { rolaanduiding: { rol: "INITIATIEFNEMER" } } : {}),
     });
     return respond(normalizeDsoResponse(data, mode));

@@ -8,7 +8,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Plan Bouw | Grootse plannen. Heldere prijzen.",
+  title: "bouwaanhuis | Grootse plannen. Heldere prijzen.",
   description:
     "Uw verbouwing begint met duidelijkheid. Bereken direct een vrijblijvende prijsindicatie voor uw uitbouw, badkamer, keuken of renovatie en ontdek uw vergunningroute.",
 };
@@ -17,6 +17,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="nl"
+      translate="no"
       className={manrope.variable}
     >
       <body>{children}</body>
