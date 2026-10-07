@@ -149,7 +149,7 @@ export default function HeroCarousel() {
     <span className="image-caption" aria-live={paused || reducedMotion ? "polite" : "off"} aria-atomic="true"><span /> {images[activeIndex].caption}</span>
     <div className="hero-float">
       <span className="float-icon"><Icon name="calculator" size={25} /></span>
-      <div><strong>Uw woonwens, direct berekend.</strong><span>Wel de mogelijkheden. Geen verrassingen.</span></div>
+      <div><strong>Uw woonwens, helder in beeld.</strong><span>Van uw eerste idee naar een concreet plan.</span></div>
       <span className="float-check"><Icon name="check" size={17} /></span>
     </div>
   </div>;

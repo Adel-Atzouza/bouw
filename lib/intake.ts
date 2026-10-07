@@ -375,7 +375,7 @@ function renovationSections(): IntakeSection[] {
 
 export const closingSection = section("contact", "closing", "Uw opname afronden", [
   t("notes", "Heeft u nog iets dat wij moeten weten?", { type: "textarea" }),
-  q("next", "Hoe wilt u verder?", ["Ik wil mijn prijsindicatie of offerte laten beoordelen", "Ik wil een opname op locatie plannen", "Ik wil een advies- of videogesprek", "Ik wil een showroomafspraak", "Ik wil een voorstel voor vergunningbegeleiding", "Ik wil later verder"]),
+  q("next", "Hoe wilt u verder?", ["Ik wil mijn verbouwplannen laten beoordelen", "Ik wil een opname op locatie plannen", "Ik wil een advies- of videogesprek", "Ik wil een showroomafspraak", "Ik wil een voorstel voor vergunningbegeleiding", "Ik wil later verder"]),
   when(m("topics", "Wat wilt u tijdens de afspraak bespreken?", ["Inmeten", "Mogelijkheden en indeling", "Materiaal- en afwerkingskeuzes", "Vergunning en tekeningen", "Kosten en planning"]), "next", "Ik wil een opname op locatie plannen", "Ik wil een advies- of videogesprek"),
   t("name", "Naam", { autoComplete: "name" }), t("email", "E-mailadres", { inputType: "email", autoComplete: "email" }), t("phone", "Telefoonnummer", { inputType: "tel", autoComplete: "tel" }),
 ]);

@@ -120,7 +120,7 @@ export default function Calculator({ onPermit, permitResult }: { onPermit: (work
   const permitPage = currentSection?.id.endsWith(".permit");
 
   return <section className="calculator-section section" id="prijsindicatie" aria-labelledby="calculator-title"><div className="container">
-    <div className="section-heading calculator-heading"><div><p className="eyebrow"><span /> UW PLANNEN, STAP VOOR STAP</p><h2 id="calculator-title">Wat kost uw verbouwing?</h2><p>Vertel ons uw wensen. Samen maken we de stap naar een heldere prijs.</p></div><span className="time-pill"><Icon name="file" size={16} /> Online opname · op uw tempo</span></div>
+    <div className="section-heading calculator-heading"><div><p className="eyebrow"><span /> UW PLANNEN, STAP VOOR STAP</p><h2 id="calculator-title">Wat zijn uw verbouwplannen?</h2><p>Vertel ons uw wensen. We bekijken uw aanvraag en nemen contact met u op over de mogelijkheden en kosten.</p></div><span className="time-pill"><Icon name="file" size={16} /> Online opname · op uw tempo</span></div>
     {savedDraft && <div className="intake-resume" role="status"><div><strong>U heeft een bewaarde opname.</strong><p>Laatst bewaard op {new Date(savedDraft.savedAt).toLocaleString("nl-NL")}. Inclusief uw bijlagen, op dit apparaat.</p></div><button className="button button-bordeaux" onClick={() => {
       setSelected(savedDraft.selected.filter((id) => workTypes.some((work) => work.id === id))); setAnswers(savedDraft.answers); setFiles(savedDraft.files); goTo(savedDraft.sectionId); setSavedDraft(null); revision.current++; setStatus("Uw bewaarde opname is geopend.");
     }}>Verder met mijn opname <Icon name="arrow" size={16} /></button><button className="back-link" onClick={async () => { try { await deleteDraft(); setSavedDraft(null); } catch { setError("De bewaarde opname kon niet worden verwijderd."); } }}>Bewaarde opname verwijderen</button></div>}
@@ -150,6 +150,6 @@ export default function Calculator({ onPermit, permitResult }: { onPermit: (work
       {!start && !sending && <nav className="intake-section-nav" aria-label="Onderdelen van uw opname"><strong>Uw stappen</strong>{sections.map((section, index) => <button type="button" key={section.id} disabled={!review && index > sectionIndex} aria-current={section.id === sectionId ? "step" : undefined} onClick={() => { if (review) setEditingReview(true); goTo(section.id); }}><span>{review || index < sectionIndex ? <Icon name="check" size={12} /> : index + 1}</span>{section.title.replace(/.* · /, "")}</button>)}</nav>}
       {works.length > 0 && <div className="intake-project-list"><strong>In uw opname</strong>{works.map((id) => { const work = workTypes.find((item) => item.id === id)!; return <span key={id}><Icon name={work.icon} size={17} />{work.name}</span>; })}</div>}
       <div className="aside-note"><Icon name="ruler" size={20} /><p>Geen maten of foto&apos;s?<br /><strong>Dan bekijken we samen wat nodig is.</strong></p></div></aside></div>
-    <p className="calculator-footnote">Een online opname is het begin van uw prijsindicatie. Onbekende gegevens blijven open; een definitieve offerte volgt na beoordeling van uw dossier.</p>
+    <p className="calculator-footnote">Met deze online opname brengt u uw wensen in kaart. Na ontvangst bekijken we uw aanvraag en bespreken we wat nodig is voor een offerte.</p>
   </div></section>;
 }

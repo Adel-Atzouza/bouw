@@ -8,9 +8,9 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "bouwaanhuis | Grootse plannen. Heldere prijzen.",
+  title: "bouwaanhuis | Grootse plannen. Een helder begin.",
   description:
-    "Uw verbouwing begint met duidelijkheid. Bereken direct een vrijblijvende prijsindicatie voor uw uitbouw, badkamer, keuken of renovatie en ontdek uw vergunningroute.",
+    "Vertel ons over uw uitbouw, badkamer, keuken of renovatie. Breng uw wensen in kaart en deel uw vrijblijvende aanvraag. Samen bespreken we de mogelijkheden en kosten.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
