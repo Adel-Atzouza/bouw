@@ -7,7 +7,7 @@ export default function ScrollReveals() {
     const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (motionPreference.matches || !("IntersectionObserver" in window)) return;
 
-    const elements = document.querySelectorAll<HTMLElement>(".section-heading, .process-card, .permit-banner, .inspiration-card, .about-inner > div, .faq-grid > div, .contact-inner");
+    const elements = document.querySelectorAll<HTMLElement>(".section-heading, .product-card, .renovation-feature, .care-intro, .care-card, .process-card, .permit-banner, .inspiration-card, .about-inner > div, .faq-grid > div, .contact-inner");
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
@@ -22,7 +22,7 @@ export default function ScrollReveals() {
         element.classList.add("is-revealed");
         return;
       }
-      if (element.matches(".process-card, .inspiration-card") && element.parentElement) {
+      if (element.matches(".product-card, .care-card, .process-card, .inspiration-card") && element.parentElement) {
         const index = Array.from(element.parentElement.children).indexOf(element);
         element.style.setProperty("--reveal-delay", `${Math.min(index, 3) * 65}ms`);
       }

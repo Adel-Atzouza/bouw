@@ -14,17 +14,16 @@ registerHooks({
   },
 });
 const { buildSections, effectiveWorks, visible, toggleOption, outcomes, quantityFor, quantityModes, bathroomAreas, exportIntake } = await import("../lib/intake.ts");
-const all = ["uitbouw", "dakopbouw", "dakkapel", "badkamer", "keuken", "afwerking", "renovatie"];
-const file = new File(["photo"], "photo.jpg", { type: "image/jpeg" });
+const all = ["uitbouw", "dakopbouw", "badkamer", "keuken", "afwerking", "renovatie", "bouwtekeningen"];
 
 test("all routes coexist with one address and unique question IDs", () => {
-  const sections = buildSections(all, { "dakkapel.count": "2", "afwerking.rooms": ["Woonkamer", "Hal"], "afwerking.0.work": ["Stucwerk", "Plinten"] });
+  const sections = buildSections(all, { "afwerking.rooms": ["Woonkamer", "Hal"], "afwerking.0.work": ["Stucwerk", "Plinten"] });
   assert.equal(sections.filter((s) => s.id === "home.address").length, 1);
   assert.equal(new Set(sections.map((s) => s.id)).size, sections.length);
   const ids = sections.flatMap((s) => s.questions.map((q) => q.id));
   assert.equal(new Set(ids).size, ids.length);
   for (const work of all) assert(sections.some((s) => s.work === work));
-  assert(ids.includes("dakkapel.1.width"));
+  assert(!ids.some((id) => id.startsWith("dakkapel.")));
 });
 test("renovation reuses selected work routes once", () => {
   const answers = { "renovatie.work": ["Badkamer vernieuwen", "Wanden en plafonds afwerken", "Vloeren vernieuwen", "Dakopbouw realiseren"] };
@@ -37,10 +36,10 @@ test("direct location route skips detailed questions and ignores stale budgets",
   assert(outcomes(all, answers, {}).every((result) => result.next === "site" && !result.estimate));
 });
 test("exclusive options and incompatible installation choices cannot coexist", () => {
-  const questions = buildSections(["keuken", "dakkapel"], {}).flatMap((s) => s.questions);
-  const extras = questions.find((q) => q.id === "dakkapel.0.extras");
-  assert.deepEqual(toggleOption(extras, ["Insectenhorren"], "Geen extra's"), ["Geen extra's"]);
-  assert.deepEqual(toggleOption(extras, ["Geen extra's"], "Insectenhorren"), ["Insectenhorren"]);
+  const questions = buildSections(["keuken", "renovatie"], {}).flatMap((s) => s.questions);
+  const floors = questions.find((q) => q.id === "renovatie.floors");
+  assert.deepEqual(toggleOption(floors, ["Begane grond"], "De hele woning"), ["De hele woning"]);
+  assert.deepEqual(toggleOption(floors, ["De hele woning"], "Begane grond"), ["Begane grond"]);
   const kitchen = questions.find((q) => q.id === "keuken.work");
   assert.deepEqual(toggleOption(kitchen, ["Elektra aanpassen", "Nieuwe keuken monteren"], "Alleen bouwkundige voorbereiding; montage regelt de keukenleverancier"), ["Elektra aanpassen", "Alleen bouwkundige voorbereiding; montage regelt de keukenleverancier"]);
 });
@@ -61,14 +60,6 @@ test("unknown measurements never generate zero or default estimates", () => {
   for (const result of outcomes(all, {}, {})) assert.equal(result.estimate, undefined);
   assert.equal(quantityFor({ "test.quantity": "40" }, "test"), null);
   assert.equal(quantityFor({ "test.quantityMode": quantityModes[3], "test.quantity": "40" }, "test"), null);
-});
-test("dormer needs a visit if any required measurement or photo is missing", () => {
-  const answers = { "dakkapel.count": "1", "dakkapel.0.task": "Een nieuwe dakkapel plaatsen", "dakkapel.0.sizeMode": "Ik vul de maten in", "dakkapel.0.width": "4" };
-  assert.equal(outcomes(["dakkapel"], answers, {})[0].next, "site");
-  const files = { "dakkapel.0.roofPhotos": [file], "dakkapel.0.insidePhotos": [file] };
-  assert.equal(outcomes(["dakkapel"], answers, files)[0].next, "review");
-  assert.equal(outcomes(["dakkapel"], { ...answers, "dakkapel.count": "2" }, files)[0].next, "site");
-  assert.equal(outcomes(["dakkapel"], { ...answers, "dakkapel.0.sizeMode": "Ik wil hulp bij het opnemen" }, files)[0].next, "site");
 });
 test("interior dimensions distinguish areas, wall height and linear lengths", () => {
   const answers = { "room.quantityMode": quantityModes[1], "room.width": "4", "room.depth": "5", "room.measureSurface": "Vloer of plafond" };
@@ -98,6 +89,6 @@ test("PDF paginates a full multi-project dossier and includes brand metadata", a
   assert(pdf.getNumberOfPages() > 1);
   const content = pdf.output();
   assert(content.startsWith("%PDF"));
-  assert(content.includes("bouwaanhuis"));
+  assert(content.includes("bouwregieaanhuis"));
   assert(!content.includes("Plan Bouw"));
 });

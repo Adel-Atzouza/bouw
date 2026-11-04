@@ -4,6 +4,7 @@ const storeName = "drafts";
 // IndexedDB preserves actual File objects without putting photos in localStorage.
 async function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
+    // Preserve existing drafts across the rebrand.
     const request = indexedDB.open("bouwaanhuis-opname", 1);
     request.onupgradeneeded = () => request.result.createObjectStore(storeName);
     request.onsuccess = () => resolve(request.result);

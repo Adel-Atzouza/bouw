@@ -1,4 +1,4 @@
-# Rechtstreeks indienen vanuit bouwaanhuis
+# Rechtstreeks indienen vanuit bouwregieaanhuis
 
 De vergunningcheck en aanvraagvragen werken via Uitvoeren services v3. Een formele aanvraag wordt daarmee niet ingediend. De huidige configuratie bevat een API-sleutel voor de vragenservices, maar geen DSO-loginregistratie of indienintegratie. Alleen een knop toevoegen of de bestaande sleutel naar een ander endpoint sturen lost dit niet op.
 
@@ -8,7 +8,7 @@ Gebruik het officiële [aanmeldformulier voor Verzoek indienen](https://develope
 
 Voorstel voor de beschrijving van de toepassing:
 
-> Bouwaanhuis begeleidt particuliere woningverbouwingen. Bezoekers bepalen hun werklocatie, selecteren werkzaamheden en beantwoorden de officiële vragen via Uitvoeren services. We willen vanuit dezelfde toepassing, na authenticatie van de initiatiefnemer of gemachtigde en expliciete controle door die gebruiker, complete vergunningaanvragen, meldingen en informatieverplichtingen met bijlagen indienen en het ontvangen verzoeknummer vastleggen.
+> bouwregieaanhuis begeleidt particuliere woningverbouwingen. Bezoekers bepalen hun werklocatie, selecteren werkzaamheden en beantwoorden de officiële vragen via Uitvoeren services. We willen vanuit dezelfde toepassing, na authenticatie van de initiatiefnemer of gemachtigde en expliciete controle door die gebruiker, complete vergunningaanvragen, meldingen en informatieverplichtingen met bijlagen indienen en het ontvangen verzoeknummer vastleggen.
 
 Het formulier vraagt bedrijfs- en contactgegevens, applicatienaam, verwachte aantallen aanroepen, piekmomenten en een callback-URL per omgeving. Deze gegevens zijn nog niet vastgesteld. Voorstel voor het pad van de te implementeren callback: `/api/omgevingswet/auth/callback`; het uiteindelijke HTTPS-domein moet overeenkomen met de registratie bij DSO. Dit pad is nog geen werkende loginroute.
 

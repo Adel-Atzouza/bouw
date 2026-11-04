@@ -1,11 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
-import Image from "next/image";
-import logoImage from "@/public/images/bouwaanhuis.png";
 
-export type IconName = "arrow" | "arrow-up" | "check" | "clock" | "shield" | "calculator" | "house" | "extension" | "bath" | "kitchen" | "roof" | "renovation" | "paint" | "chevron" | "close" | "menu" | "download" | "pin" | "file" | "spark" | "plus" | "lock" | "ruler";
+export type IconName = "phone" | "mail" | "arrow" | "arrow-up" | "check" | "clock" | "shield" | "calculator" | "house" | "extension" | "bath" | "kitchen" | "roof" | "renovation" | "paint" | "chevron" | "close" | "menu" | "download" | "pin" | "file" | "spark" | "plus" | "lock" | "ruler";
 
 export function Icon({ name, size = 24, className, style }: { name: IconName; size?: number; className?: string; style?: CSSProperties }) {
   const paths: Record<IconName, ReactNode> = {
+    phone: <path d="M21 16.5v3a2 2 0 0 1-2.2 2 18 18 0 0 1-8-2.8 18 18 0 0 1-5.5-5.5 18 18 0 0 1-2.8-8A2 2 0 0 1 4.5 3h3a1 1 0 0 1 1 .9l.5 3a1 1 0 0 1-.3.9L7 9.5a14 14 0 0 0 7.5 7.5l1.7-1.7a1 1 0 0 1 .9-.3l3 .5a1 1 0 0 1 .9 1Z" />,
+    mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 6 9 7 9-7" /></>,
     arrow: <path d="M4 12h15m-6-6 6 6-6 6" />,
     "arrow-up": <path d="M6 18 18 6M6 6h12v12" />,
     check: <path d="m5 12 4 4L19 6" />,
@@ -34,7 +34,11 @@ export function Icon({ name, size = 24, className, style }: { name: IconName; si
 }
 
 export function Logo() {
-  return <a className="brand" href="#" aria-label="bouwaanhuis — naar de homepage">
-    <Image src={logoImage} alt={"Bouwaanhuis logo"} width="132" height="132" draggable={false} />
+  return <a className="brand brand-regie" href="#" aria-label="bouwregieaanhuis — naar de homepage">
+    <svg viewBox="0 0 44 44" fill="none" aria-hidden="true">
+      <path d="M7 20v19h30V20" stroke="currentColor" strokeWidth="3" />
+      <path d="m2 22 20-16 20 16M31 13V5h6v13" stroke="var(--bordeaux)" strokeWidth="3" />
+    </svg>
+    <span className="brand-wordmark"><strong>bouwregie</strong><span>aanhuis</span></span>
   </a>
 }

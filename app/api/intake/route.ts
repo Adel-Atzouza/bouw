@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     catch { return reply({ error: "Ongeldige herkomst." }, 403); }
   }
   const url = destination();
-  if (!url) return reply({ error: "Online versturen is nog niet beschikbaar. Download uw dossier om het zelf te delen." }, 503);
+  if (!url) return reply({ error: "Online versturen is nog niet beschikbaar. Uw aanvraag is niet verzonden. Bewaar uw gegevens en neem contact op per telefoon of e-mail." }, 503);
   if (!request.headers.get("content-type")?.startsWith("multipart/form-data")) return reply({ error: "Ongeldige aanvraag." }, 415);
   if (Number(request.headers.get("content-length")) > maxBody) return reply({ error: "Uw bijlagen zijn te groot. Gebruik samen maximaal 100 MB." }, 413);
 
@@ -60,6 +60,7 @@ export async function POST(request: Request) {
     if (Object.values(payload.answers).some((answer) => typeof answer === "string" ? answer.length > 4000 : !Array.isArray(answer) || answer.length > 100 || answer.some((item) => typeof item !== "string" || item.length > 500))) throw new Error();
     selected = [...new Set(payload.selected)] as WorkId[];
     answers = payload.answers;
+    if (["Contactformulier", "Offertevragen"].includes(value(answers, "contact.route")) && !value(answers, "contact.notes").trim()) throw new Error();
     if (!value(answers, "contact.name").trim() || value(answers, "contact.name").length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value(answers, "contact.email")) || value(answers, "contact.email").length > 254 || value(answers, "contact.phone").length > 80) throw new Error();
     let total = 0, count = 0;
     for (const [key, file] of data) {

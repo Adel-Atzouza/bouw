@@ -1,10 +1,10 @@
-# bouwaanhuis
+# bouwregieaanhuis
 
-Nederlandstalige website voor een verbouwbedrijf, gebouwd met Next.js 16, React 19 en TypeScript. De huisstijl gebruikt donkerblauw, wit, lichtgrijs en bordeaux. De mobiele versie heeft grote aanraakvlakken, een inklapbaar menu, twee kolommen met werkzaamheden en een vaste knop naar de prijsberekening.
+Nederlandstalige website voor een verbouwbedrijf, gebouwd met Next.js 16, React 19 en TypeScript. De huisstijl gebruikt donkerblauw, wit, lichtgrijs en bordeaux. De mobiele versie heeft grote aanraakvlakken, een inklapbaar menu, een productoverzicht en een compacte contactknop in de vaste header.
 
-De site gebruikt subtiele scrollanimaties, horizontale overgangen tussen carrouselbeelden en schuivende stappen in de prijsberekening en vergunninghulp. Alle effecten respecteren `prefers-reduced-motion`; inhoud blijft zonder JavaScript zichtbaar en formuliervelden behouden hun antwoorden bij het navigeren.
+De site gebruikt subtiele scrollanimaties, horizontale overgangen tussen carrouselbeelden en schuivende stappen in de vergunninghulp. Alle effecten respecteren `prefers-reduced-motion`; inhoud blijft zonder JavaScript zichtbaar en formuliervelden behouden hun antwoorden bij het navigeren.
 
-Op brede desktops groeien typografie, knoppen en inhoud via `rem`-maten geleidelijk tot 133% van de oorspronkelijke schaal; de mobiele maten blijven behouden. De vergunningknop bij de prijsindicatie is maximaal `18rem` breed.
+Op brede desktops groeien typografie, knoppen en inhoud via `rem`-maten geleidelijk tot 133% van de oorspronkelijke schaal; de mobiele maten blijven behouden.
 
 De fotocarrousel wisselt elke zes seconden. Klik of tik op de linker- of rechterrand van de foto om terug of verder te bladeren, gebruik de pijltjestoetsen, swipe of sleep met de muis. Er zijn geen zichtbare navigatie- of pauzeknoppen; toetsenbordbediening krijgt wel een zichtbare focusmarkering. Automatisch afspelen pauzeert bij aanwijzen, een verborgen browsertab of een carrousel buiten beeld. Na handmatige bediening of toetsenbordfocus blijft de carrousel op handmatige bediening staan. Bij verminderde beweging staat automatisch afspelen uit. Lokale foto's worden statisch geïmporteerd, zodat gewijzigde bestanden een nieuwe afbeeldings-URL krijgen en oude cacheversies niet blijven hangen.
 
@@ -24,17 +24,29 @@ pnpm build
 pnpm start
 ```
 
-## Online opname en prijsindicatie
+## Productoverzicht en contact
 
-De calculator is een begeleide opname met meerdere werkzaamheden: aan-/uitbouw, dakopbouw, dakkapel, badkamer, keuken, binnenafwerking en totale renovatie. Woninggegevens worden één keer gevraagd. De vragen staan in `lib/intake.ts`; de weergave in `components/calculator.tsx`, `components/intake-question.tsx` en `components/intake-review.tsx`.
+De homepage zet complete renovaties en de begeleiding van het hele traject voorop. De zes aanvullende diensten zijn aan-/uitbouw, badkamer, keuken, dakopbouw, binnenafwerking en bouwtekeningen & vergunningen. De laatste dienst is ook los aan te vragen, met gerichte vragen over tekeningen en vergunningbegeleiding. Dakkapellen zijn verwijderd uit het aanbod, de opnameroutes en de suggesties voor de vergunningcheck.
 
-Vervolgvragen volgen de gemaakte keuzes. Dakkapellen worden per stuk opgenomen; binnenafwerking wordt per benoemde ruimte en werkzaamheid uitgevraagd. Totale renovatie opent dezelfde deelroutes zonder duplicaten. Exclusieve antwoorden zoals ‘Weet ik niet’ kunnen niet met inhoudelijke antwoorden gecombineerd worden. Niet-relevante antwoorden blijven beschikbaar bij teruggaan, maar verschijnen niet in het actieve overzicht of de export.
+`components/quote-request.tsx` biedt twee ingangen naar dezelfde aanvraag: een normaal contactformulier voor complete renovaties en een korte offertevragenlijst voor de overige werkzaamheden. De offertevragen behandelen project, wensen en planning; technische antwoorden zijn optioneel. Een blijvend zichtbare knop ‘Liever persoonlijk contact’ opent onmiddellijk het contactformulier, ook vanuit de vergunninghulp. Ingevoerde offerteantwoorden, contactgegevens en bestanden blijven tijdens het wisselen behouden. Er is geen automatische opslag na het sluiten of herladen van de pagina.
+
+Het formulier vraagt naam, e-mailadres en een omschrijving. Telefoonnummer, plaats en foto's/PDF zijn optioneel. Maximaal 10 bestanden, 20 MB per bestand en 100 MB samen. Beide routes gebruiken `/api/intake` en dezelfde bevestigde webhookontvangst als de eerdere opname. De API bewaart de contactformuliergegevens en uploads via de aparte `contact.request`-sectie; technische intakevragen zijn hiervoor niet nodig. Zonder ontvangstdienst wordt geen ontvangst gesimuleerd: het formulier meldt de ontbrekende verzending en biedt een tekstdownload en telefoon/e-mail als alternatief.
+
+De contactgegevens staan centraal in `lib/contact.ts`. De tijdelijke voorbeeldgegevens zijn **020 000 0000** en **info@bouwregieaanhuis.example**; vervang deze vóór gebruik door `NEXT_PUBLIC_CONTACT_PHONE` en `NEXT_PUBLIC_CONTACT_EMAIL` in te stellen en opnieuw te bouwen. Het `.example`-adres ontvangt geen e-mail. Stel ook `INTAKE_WEBHOOK_URL` en `INTAKE_WEBHOOK_TOKEN` in om formulieraanvragen met foto's te ontvangen; zie het ontvangstcontract hieronder.
+
+De oudere gedetailleerde opnamecomponenten blijven in de broncode beschikbaar maar worden niet door de homepage geladen. Onderstaande opnamedocumentatie beschrijft die implementatie.
+
+## Eerdere online opname en prijsindicatie (niet op de homepage)
+
+De calculator is een begeleide opname met meerdere werkzaamheden: aan-/uitbouw, dakopbouw, badkamer, keuken, binnenafwerking en totale renovatie. Woninggegevens worden één keer gevraagd. De vragen staan in `lib/intake.ts`; de weergave in `components/calculator.tsx`, `components/intake-question.tsx` en `components/intake-review.tsx`.
+
+Vervolgvragen volgen de gemaakte keuzes. Binnenafwerking wordt per benoemde ruimte en werkzaamheid uitgevraagd. Totale renovatie opent dezelfde deelroutes zonder duplicaten. Exclusieve antwoorden zoals ‘Weet ik niet’ kunnen niet met inhoudelijke antwoorden gecombineerd worden. Niet-relevante antwoorden blijven beschikbaar bij teruggaan, maar verschijnen niet in het actieve overzicht of de export.
 
 Afmetingen zijn leeg totdat de bezoeker ze invult. Onbekende maten, productkeuzes en tarieven worden niet als nul of een standaardwaarde ingevuld. Badkameroppervlakken worden voor rechthoekige ruimtes uitgerekend, inclusief verschillende tegelhoogtes; aftrek van deuren/ramen blijft onbekend totdat die is opgegeven. Materiaalverlies wordt apart beoordeeld. Binnenafwerking onderscheidt m², strekkende meters en aantallen, berekent desgewenst uit ruimtematen en markeert geschatte hoeveelheden.
 
 **De bestaande tarieven in `lib/pricing.ts` blijven voorlopige demonstratietarieven, geen geverifieerde marktprijzen of vaste offertes.** Een bandbreedte verschijnt alleen bij een geschikte bekende omvang en gekozen kwaliteitsniveau. De ingevulde details vormen de verdere calculatie; niet iedere productkeuze is al geprijsd. Voor dakopbouw en de afzonderlijke binnenafwerkingsdiensten zijn nog geen bedrijfstarieven aangeleverd. `finishingRates` in `lib/intake.ts` gebruikt daarom `null`; vul alleen vastgestelde tarieven inclusief btw in en werk bijbehorende voorbereiding, materiaal- en uitvoeringsregels uit voordat u vaste offertes aanbiedt. Keukenlevering volgt de partner, met bouwkundige voorbereiding en montage afzonderlijk. Bij totale renovatie worden deelindicaties niet bij de totale bandbreedte opgeteld.
 
-Ontbrekende noodzakelijke dakkapelmaten of foto's leiden naar een locatieopname. Dakopbouw en totale renovatie vragen technische/integrale beoordeling. Binnenafwerking kan op afstand verder; badkamer en keuken worden afhankelijk van het dossier beoordeeld. ‘Concept’ is geen ontvangen aanvraag, geboekte afspraak of complete calculatie.
+Dakopbouw en totale renovatie vragen technische/integrale beoordeling. Binnenafwerking kan op afstand verder; badkamer en keuken worden afhankelijk van het dossier beoordeeld. ‘Concept’ is geen ontvangen aanvraag, geboekte afspraak of complete calculatie.
 
 ### Opslaan, bijlagen en downloaden
 
@@ -76,7 +88,7 @@ De bestaande vergunningdialoog ontvangt de postcode en het huisnummer, waarna de
 
 ### Controles
 
-Gebruik Node.js 22.15 of hoger voor de testloader. `pnpm test` controleert vertakkingen, exclusieve opties, onbekende maten, herhaalde dakkapellen, ontdubbelde renovatieroutes, oppervlaktes en dossierexport. `tests/dso-api.test.mjs` controleert daarnaast dat bevestigde antwoorden met hun officiële vraag-ID naar het juiste DSO-endpoint gaan en dat gewijzigde antwoorden geen achterhaalde vervolgantwoorden meesturen. `pnpm lint` en `pnpm exec tsc --noEmit` controleren de broncode. De desktop- en mobiele browserroutes zijn ook gecontroleerd, inclusief lokaal bewaren/hervatten met bijlagen en downloaden.
+Gebruik Node.js 22.15 of hoger voor de testloader. `pnpm test` controleert vertakkingen, exclusieve opties, onbekende maten, ontdubbelde renovatieroutes, oppervlaktes en dossierexport. `tests/dso-api.test.mjs` controleert daarnaast dat bevestigde antwoorden met hun officiële vraag-ID naar het juiste DSO-endpoint gaan en dat gewijzigde antwoorden geen achterhaalde vervolgantwoorden meesturen. `pnpm lint` en `pnpm exec tsc --noEmit` controleren de broncode. De desktop- en mobiele browserroutes zijn ook gecontroleerd, inclusief lokaal bewaren/hervatten met bijlagen en downloaden.
 
 ## Omgevingswet-integratie
 
@@ -115,7 +127,7 @@ Zonder sleutel, of bij een fout, worden **geen vergunningvragen of conclusies ve
 
 Uitvoeren services levert vragen, conclusies en de status van indieningsvereisten. Deze API dient zelf geen vergunningaanvraag in. De website bereidt de aanvraag voor en verwijst voor het daadwerkelijk indienen naar het Omgevingsloket. De bevestigde antwoorden worden bij iedere stap daadwerkelijk via onze server naar DSO gestuurd. Dat levert vervolgvragen, conclusies of een compleetheidsbeoordeling op. De website toont hoeveel antwoorden verwerkt zijn. Een los geopend tabblad van het Omgevingsloket neemt deze sessie niet automatisch over; dat staat los van de API-verwerking die al op onze website plaatsvindt. Er is daarmee nog geen formele vergunningaanvraag ingediend.
 
-Voor rechtstreekse indiening vanuit bouwaanhuis is daarnaast de API **Verzoek indienen v5** nodig. Die vereist registratie en acceptatie van de applicatie bij DSO, OpenID Connect-authenticatie van de initiatiefnemer/gemachtigde, een bevoegde-gezagroute, een volledig indienbericht en de afhandeling van documenten en definitieve bevestiging. Hiervoor zijn nog geen aansluitgegevens of authenticatie-infrastructuur aangeleverd. Deze website simuleert deze procedure niet.
+Voor rechtstreekse indiening vanuit bouwregieaanhuis is daarnaast de API **Verzoek indienen v5** nodig. Die vereist registratie en acceptatie van de applicatie bij DSO, OpenID Connect-authenticatie van de initiatiefnemer/gemachtigde, een bevoegde-gezagroute, een volledig indienbericht en de afhandeling van documenten en definitieve bevestiging. Hiervoor zijn nog geen aansluitgegevens of authenticatie-infrastructuur aangeleverd. Deze website simuleert deze procedure niet.
 
 De check gebruikt het bevestigde punt of getekende werkgebied en de gekozen werkzaamheden. De zoekresultaten zijn geen complete inventaris van alle werkzaamheden. Ontbrekende herbruikbare beslissingen worden niet zelf ingevuld: als DSO verwijzingen naar gerelateerde werkzaamheden aanlevert, kan de bezoeker de bijbehorende officiële vragen ophalen. Zonder beschikbare gegevens blijft de uitkomst onvolledig. [Het aansluitdossier](docs/dso-indienen.md) beschrijft de nog ontbrekende stappen voor formeel indienen.
 
@@ -131,7 +143,7 @@ De check gebruikt het bevestigde punt of getekende werkgebied en de gekozen werk
 
 ## Inhoud en publicatie
 
-bouwaanhuis is de bedrijfsnaam. Het bestaande logo wordt gebruikt. De inspiratiebeelden zijn sfeerbeelden, geen claims over uitgevoerde projecten. Er zijn geen verzonnen beoordelingen, projectaantallen, contactgegevens of keurmerken toegevoegd. De footer bevat uitleg over gegevensgebruik.
+bouwregieaanhuis is de bedrijfsnaam. Het woordmerk toont de nieuwe naam bij het huisicoon. Bestaande browseropslag houdt zijn oorspronkelijke sleutel zodat bewaarde dossiers beschikbaar blijven. De inspiratiebeelden zijn sfeerbeelden, geen claims over uitgevoerde projecten. Er zijn geen verzonnen beoordelingen, projectaantallen of keurmerken toegevoegd. De contactgegevens zijn tijdelijk als voorbeeld ingevuld op verzoek; zie de contactinstellingen hierboven. De footer bevat uitleg over gegevensgebruik.
 
 De foto's staan lokaal in `public/images/`, afkomstig van Unsplash: `photo-1600607687920-4e2a09cf159d`, `photo-1600210492486-724fe5c67fb0`, `photo-1620626011761-996317b8d101` en `photo-1556912172-45b7abe8b7e1`. Het lettertype Manrope wordt tijdens de build opgehaald en daarna lokaal geserveerd.
 

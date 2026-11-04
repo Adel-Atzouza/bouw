@@ -177,6 +177,6 @@ test("same-origin requests use the browser's real Host despite Next URL normaliz
 });
 
 test("cross-origin requests cannot bypass the check using forwarded host", async () => {
-  const request = new Request("http://localhost:3000/api/omgevingswet", { method: "POST", headers: { origin: "https://other.example", host: "bouwaanhuis.example", "x-forwarded-proto": "https", "x-forwarded-host": "other.example" }, body: JSON.stringify({ action: "submit" }) });
+  const request = new Request("http://localhost:3000/api/omgevingswet", { method: "POST", headers: { origin: "https://other.example", host: "bouwregieaanhuis.example", "x-forwarded-proto": "https", "x-forwarded-host": "other.example" }, body: JSON.stringify({ action: "submit" }) });
   assert.equal((await POST(request)).status, 403);
 });

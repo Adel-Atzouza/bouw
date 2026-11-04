@@ -71,7 +71,7 @@ const permitQuestions = [
   q("permit", "Heeft u al een vergunningcheck gedaan voor deze verbouwing?", ["Nee, ik wil de vergunningcheck starten", "Ja, volgens de check is geen vergunning nodig", "Ja, volgens de check is mogelijk een vergunning nodig", "Ja, maar de uitkomst is mij niet duidelijk", "De vergunningaanvraag loopt al", "De vergunning is al verleend"]),
   when(q("permitDocuments", "Heeft u de uitkomst of documenten beschikbaar?", ["Ja, ik upload deze", "Nee, ik voeg deze later toe", "Nee, ik wil dat jullie dit met mij bekijken"]), "permit", "Ja, volgens de check is geen vergunning nodig", "Ja, volgens de check is mogelijk een vergunning nodig", "Ja, maar de uitkomst is mij niet duidelijk", "De vergunningaanvraag loopt al", "De vergunning is al verleend"),
   when(u("permitFiles", "Voeg uw vergunningstukken toe", "Een rapport, tekening, besluit of uitkomst van de check."), "permitDocuments", "Ja, ik upload deze"),
-  when(q("permitSupport", "Wilt u dat bouwaanhuis de vergunningaanvraag voor u verzorgt?", ["Ja, ik ontvang graag een voorstel", "Ik wil eerst weten wat hiervoor nodig is", "Nee, ik regel dit zelf of via een andere partij"]), "permit", "Ja, volgens de check is mogelijk een vergunning nodig", "Ja, maar de uitkomst is mij niet duidelijk"),
+  when(q("permitSupport", "Wilt u dat bouwregieaanhuis de vergunningaanvraag voor u verzorgt?", ["Ja, ik ontvang graag een voorstel", "Ik wil eerst weten wat hiervoor nodig is", "Nee, ik regel dit zelf of via een andere partij"]), "permit", "Ja, volgens de check is mogelijk een vergunning nodig", "Ja, maar de uitkomst is mij niet duidelijk"),
 ];
 const sizeQuestions = (depth = true, height = false): Question[] => [
   q("sizeMode", "Heeft u afmetingen of een plattegrond?", [ownSizes, planSizes, helpSizes]),
@@ -149,43 +149,6 @@ function rooftopSections(): IntakeSection[] {
       q("photoHelp", "Heeft u hulp nodig bij de opname?", ["Nee, de informatie is beschikbaar", "Ja, ik heb niet alle maten of foto's", unknown]),
     ]),
   ];
-}
-
-function dormerSections(answers: Answers): IntakeSection[] {
-  const result = [section("dakkapel", "start", "Dakkapel · uw plannen", [q("count", "Hoeveel dakkapellen wilt u laten aanpakken?", ["1", "2", "Meer dan 2"]), when(n("number", "Aantal dakkapellen", "stuks", { min: 3, max: 10, step: "1" }), "count", "Meer dan 2")], "dakkapel"), section("dakkapel", "permit", "Dakkapel · vergunning", permitQuestions, "dakkapel")];
-  const count = value(answers, "dakkapel.count") === "Meer dan 2" ? positive(answers, "dakkapel.number") : positive(answers, "dakkapel.count");
-  for (let i = 0; i < Math.min(10, count ?? 1); i++) {
-    const prefix = `dakkapel.${i}`;
-    const s = (id: string, title: string, questions: Question[]) => section(prefix, id, `Dakkapel ${i + 1} · ${title}`, questions, "dakkapel");
-    result.push(
-      s("wish", "werkzaamheden en plaatsing", [
-        q("task", "Wat wilt u laten doen?", ["Een nieuwe dakkapel plaatsen", "Een bestaande dakkapel vervangen", "Een bestaande dakkapel renoveren", "Ik wil eerst advies"]),
-        q("side", "Waar komt of staat de dakkapel?", ["Voorzijde", "Achterzijde", "Zijkant", later]),
-        q("floor", "Op welke verdieping?", ["Eerste verdieping", "Tweede verdieping", "Derde verdieping of hoger", unknown]),
-        when(m("renovate", "Welke onderdelen wilt u renoveren?", ["Dakbedekking", "Buitenbekleding", "Kozijnen of glas", "Isolatie", "Binnenafwerking", "Herstel van lekkage of schade", "Dat moet eerst worden beoordeeld"]), "task", "Een bestaande dakkapel renoveren"),
-      ]),
-      s("sizes", "afmetingen", sizeQuestions(false)),
-      s("finish", "uitvoering", [
-        q("material", "Welke buitenafwerking heeft uw voorkeur?", ["Kunststof", "Hout", "Andere afwerking", advice]),
-        when(t("otherMaterial", "Welke andere afwerking?"), "material", "Andere afwerking"),
-        q("color", "Welke kleur heeft uw voorkeur?", ["Wit of crème", "Antraciet of donkergrijs", "Passend bij de bestaande kozijnen", "Andere kleur", later]),
-        when(t("otherColor", "Welke andere kleur?"), "color", "Andere kleur"),
-        q("windows", "Heeft u een voorkeur voor de raamindeling?", ["Ja, ik voeg een voorbeeld of omschrijving toe", "Nee, ik ontvang graag een voorstel"]),
-        when(t("windowDescription", "Omschrijf uw gewenste raamindeling", { type: "textarea" }), "windows", "Ja, ik voeg een voorbeeld of omschrijving toe"),
-        when(u("windowExample", "Voorbeeld van de raamindeling", "Voeg eventueel een foto of schets toe."), "windows", "Ja, ik voeg een voorbeeld of omschrijving toe"),
-        q("finish", "Hoe wilt u de binnenzijde laten afwerken?", ["Zonder binnenafwerking", "Betimmerd, klaar voor schilder- of stucwerk", "Volledig afgewerkt", later]),
-        priceFinish,
-        m("extras", "Welke extra's wilt u?", ["Zonwering of rolluik", "Insectenhorren", "Extra ventilatievoorzieningen", "Geen extra's", "Advies over de mogelijkheden"]),
-      ]),
-      s("photos", "foto's", [
-        u("roofPhotos", "Het gehele dakvlak", "Maak vanaf de grond een foto waarop het hele dakvlak zichtbaar is. Ga niet het dak op en meet geen dakhelling."),
-        u("insidePhotos", "De binnenzijde van de zolder", "Laat de plek waar de dakkapel komt van binnen zien."),
-        when(u("existingPhotos", "De bestaande dakkapel", "Voeg bij vervanging of renovatie een overzicht en eventuele schade toe."), "task", "Een bestaande dakkapel vervangen", "Een bestaande dakkapel renoveren"),
-        q("photoHelp", "Kunt u geschikte foto's aanleveren?", ["Ja, hierboven toegevoegd", "Ik voeg deze later toe", "Nee, ik kan geen geschikte foto's aanleveren"]),
-      ]),
-    );
-  }
-  return result;
 }
 
 function bathroomSections(answers: Answers): IntakeSection[] {
@@ -279,8 +242,8 @@ function kitchenSections(): IntakeSection[] {
       q("layout", "Blijft de keuken op dezelfde plek?", ["Ja, met ongeveer dezelfde indeling", "Ja, maar de indeling verandert", "Nee, de keuken verhuist naar een andere plek", later]),
       q("cooking", "Welke kookvoorziening komt er?", ["Inductie", "Keramisch of elektrisch", "Gas", "Bestaande kookplaat behouden", later]),
     ]),
-    s("work", "werkzaamheden voor bouwaanhuis", [
-      m("work", "Welke werkzaamheden moet bouwaanhuis uitvoeren?", ["Oude keuken verwijderen en afvoeren", "Water en afvoer aanpassen", "Elektra aanpassen", "Ventilatie of afzuigaansluiting aanpassen", "Wanden herstellen of stucen", "Schilderwerk", "Vloer verwijderen of aanbrengen", "Nieuwe keuken monteren", "Alleen bouwkundige voorbereiding; montage regelt de keukenleverancier", "Ik wil advies over wat nodig is"], { exclusive: ["Ik wil advies over wat nodig is"], excludes: { "Nieuwe keuken monteren": ["Alleen bouwkundige voorbereiding; montage regelt de keukenleverancier"] }, hint: "Keukenlevering, voorbereiding en montage zijn afzonderlijke posten. Montage wordt één keer opgenomen." }),
+    s("work", "werkzaamheden voor bouwregieaanhuis", [
+      m("work", "Welke werkzaamheden moet bouwregieaanhuis uitvoeren?", ["Oude keuken verwijderen en afvoeren", "Water en afvoer aanpassen", "Elektra aanpassen", "Ventilatie of afzuigaansluiting aanpassen", "Wanden herstellen of stucen", "Schilderwerk", "Vloer verwijderen of aanbrengen", "Nieuwe keuken monteren", "Alleen bouwkundige voorbereiding; montage regelt de keukenleverancier", "Ik wil advies over wat nodig is"], { exclusive: ["Ik wil advies over wat nodig is"], excludes: { "Nieuwe keuken monteren": ["Alleen bouwkundige voorbereiding; montage regelt de keukenleverancier"] }, hint: "Keukenlevering, voorbereiding en montage zijn afzonderlijke posten. Montage wordt één keer opgenomen." }),
       priceFinish,
     ]),
     s("documents", "foto's en documenten", [
@@ -337,7 +300,7 @@ function interiorSections(answers: Answers): IntakeSection[] {
       q("empty", "Is deze ruimte leeg tijdens de werkzaamheden?", ["Ja", "Gedeeltelijk", "Nee"]),
       q("floor", "Op welke verdieping vindt het werk plaats?", ["Begane grond", "Eerste verdieping", "Tweede verdieping of hoger", "Kelder", unknown]),
       q("high", "Zijn er moeilijk bereikbare of hoge oppervlakken?", ["Nee", "Ja, hoger dan 3 meter", "Ja, in een trappenhuis", unknown]),
-      q("supply", "Wie levert het afwerkingsmateriaal?", ["Bouwaanhuis", "Ikzelf", "Verschilt per onderdeel"]),
+      q("supply", "Wie levert het afwerkingsmateriaal?", ["bouwregieaanhuis", "Ikzelf", "Verschilt per onderdeel"]),
       t("supplyDetails", "Materialen of bijzonderheden", { type: "textarea", hint: "Bijvoorbeeld welk materiaal u zelf levert." }),
       u("photos", "Wilt u foto's toevoegen?", "Optioneel bij standaardwerk. Voeg bij schade of een onduidelijke ondergrond een overzicht en een detailfoto toe."),
     ]));
@@ -345,13 +308,13 @@ function interiorSections(answers: Answers): IntakeSection[] {
   return result;
 }
 
-const renovationWorkMap: Record<string, WorkId> = { "Badkamer vernieuwen": "badkamer", "Keuken vernieuwen": "keuken", "Wanden en plafonds afwerken": "afwerking", "Vloeren vernieuwen": "afwerking", "Aanbouw of uitbouw realiseren": "uitbouw", "Dakopbouw realiseren": "dakopbouw", "Dakkapel plaatsen of vernieuwen": "dakkapel" };
+const renovationWorkMap: Record<string, WorkId> = { "Badkamer vernieuwen": "badkamer", "Keuken vernieuwen": "keuken", "Wanden en plafonds afwerken": "afwerking", "Vloeren vernieuwen": "afwerking", "Aanbouw of uitbouw realiseren": "uitbouw", "Dakopbouw realiseren": "dakopbouw" };
 function renovationSections(): IntakeSection[] {
   const s = (id: string, title: string, questions: Question[]) => section("renovatie", id, `Totale renovatie · ${title}`, questions, "renovatie");
   return [
     s("wish", "onderdelen en ruimtes", [
       m("floors", "Welke delen van de woning wilt u renoveren?", ["Begane grond", "Eerste verdieping", "Tweede verdieping", "Zolder", "Kelder", "De hele woning"], { exclusive: ["De hele woning"] }),
-      m("work", "Welke werkzaamheden wilt u uitvoeren?", ["Badkamer vernieuwen", "Keuken vernieuwen", "Wanden en plafonds afwerken", "Vloeren vernieuwen", "Binnenmuren verwijderen of verplaatsen", "Elektra vernieuwen", "Water- en afvoerleidingen aanpassen", "Verwarming aanpassen", "Isoleren", "Kozijnen vervangen", "Aanbouw of uitbouw realiseren", "Dakopbouw realiseren", "Dakkapel plaatsen of vernieuwen", "Anders"]),
+      m("work", "Welke werkzaamheden wilt u uitvoeren?", ["Badkamer vernieuwen", "Keuken vernieuwen", "Wanden en plafonds afwerken", "Vloeren vernieuwen", "Binnenmuren verwijderen of verplaatsen", "Elektra vernieuwen", "Water- en afvoerleidingen aanpassen", "Verwarming aanpassen", "Isoleren", "Kozijnen vervangen", "Aanbouw of uitbouw realiseren", "Dakopbouw realiseren", "Anders"]),
       when(t("otherWork", "Welke andere werkzaamheden?"), "work", "Anders"),
       t("roomWork", "Welke werkzaamheden horen bij welke ruimte?", { type: "textarea", hint: "Bijvoorbeeld: badkamer op de eerste verdieping, keuken beneden. De gerichte routes volgen hierna één keer." }),
       q("layout", "Wilt u de indeling veranderen?", ["Nee", "Ja, binnenmuren verwijderen of verplaatsen", "Ja, ruimtes een andere functie geven", "Ik wil advies over de indeling"]),
@@ -373,6 +336,15 @@ function renovationSections(): IntakeSection[] {
   ];
 }
 
+const quoteSection = section("contact", "request", "Uw woonwensen en contactgegevens", [
+  t("name", "Naam"), t("email", "E-mailadres"), t("phone", "Telefoonnummer"),
+  t("notes", "Uw plannen", { type: "textarea" }),
+  t("route", "Aanvraag via"), t("city", "Plaats van de verbouwing"),
+  t("scope", "Hoe ver zijn uw plannen?"), t("size", "Globale omvang van het project"),
+  t("finish", "Wat mogen wij regelen?"), t("planning", "Gewenste start"), t("budget", "Budget in gedachten"),
+  u("photos", "Foto’s en tekeningen bij uw aanvraag", "Optioneel: foto's van uw woning, plattegronden of inspiratie."),
+]);
+
 export const closingSection = section("contact", "closing", "Uw opname afronden", [
   t("notes", "Heeft u nog iets dat wij moeten weten?", { type: "textarea" }),
   q("next", "Hoe wilt u verder?", ["Ik wil mijn verbouwplannen laten beoordelen", "Ik wil een opname op locatie plannen", "Ik wil een advies- of videogesprek", "Ik wil een showroomafspraak", "Ik wil een voorstel voor vergunningbegeleiding", "Ik wil later verder"]),
@@ -383,11 +355,18 @@ export function effectiveWorks(selected: WorkId[], answers: Answers): WorkId[] {
   return [...new Set([...selected, ...(selected.includes("renovatie") ? values(answers, "renovatie.work").flatMap((item) => renovationWorkMap[item] ? [renovationWorkMap[item]] : []) : [])])];
 }
 export function buildSections(selected: WorkId[], answers: Answers): IntakeSection[] {
+  if (["Contactformulier", "Offertevragen"].includes(value(answers, "contact.route"))) return [quoteSection];
   if (value(answers, "home.method") === "Ik wil direct een opname op locatie plannen") return [housingSection, closingSection];
   const works = effectiveWorks(selected, answers);
   return [housingSection, ...(works.includes("renovatie") ? renovationSections() : []), ...works.flatMap((work) => {
     switch (work) {
-      case "uitbouw": return extensionSections(); case "dakopbouw": return rooftopSections(); case "dakkapel": return dormerSections(answers);
+      case "uitbouw": return extensionSections(); case "dakopbouw": return rooftopSections();
+      case "bouwtekeningen": return [section("bouwtekeningen", "wish", "Bouwtekeningen & vergunningen · uw plannen", [
+        q("service", "Waar kunnen we u bij helpen?", ["Bouwtekeningen", "Vergunningbegeleiding", "Bouwtekeningen en vergunningbegeleiding", "Ik ontvang graag advies"]),
+        t("project", "Beschrijf uw bouwplan", { type: "textarea", hint: "Bijvoorbeeld een uitbouw, een dakopbouw of een nieuwe indeling." }),
+        q("stage", "Hoe ver bent u met uw plannen?", ["Ik heb een eerste idee", "Ik heb al een ontwerp of tekeningen", "Ik heb al contact met de gemeente", "Er loopt al een vergunningaanvraag"]),
+        u("documents", "Bestaande tekeningen, foto's of correspondentie", "Voeg toe wat u al heeft. U hoeft nog geen compleet dossier te hebben."),
+      ], "bouwtekeningen")];
       case "badkamer": return bathroomSections(answers); case "keuken": return kitchenSections(); case "afwerking": return interiorSections(answers); default: return [];
     }
   }), closingSection];
@@ -444,7 +423,8 @@ export function outcomes(selected: WorkId[], answers: Answers, files: IntakeFile
     const title = workTypes.find((item) => item.id === work)!.name;
     const reasons: string[] = [];
     let next: WorkOutcome["next"] = "review";
-    let size: number | null = null, scope: string = work;
+    let size: number | null = null;
+    const scope = work;
     if (work === "uitbouw") {
       if (!sizeReady(work)) reasons.push("Afmetingen of een tekening met maten ontbreken.");
       if (!hasFiles("uitbouw.facadePhotos") || !hasFiles("uitbouw.sitePhotos")) reasons.push("Foto's van de gevel en bouwlocatie ontbreken.");
@@ -455,18 +435,6 @@ export function outcomes(selected: WorkId[], answers: Answers, files: IntakeFile
       next = "site";
       reasons.push(work === "dakopbouw" ? "Een locatieopname en technische beoordeling van dak, constructie en trap zijn nodig." : "Een integrale opname is nodig voor samenhang, fasering en gezamenlijke kosten. Deelbegrotingen worden niet dubbel opgeteld.");
       if (work === "renovatie" && value(answers, "renovatie.sizeMode") === "Ik weet de oppervlakte") size = positive(answers, "renovatie.area");
-    } else if (work === "dakkapel") {
-      const rawCount = value(answers, "dakkapel.count") === "Meer dan 2" ? positive(answers, "dakkapel.number") : positive(answers, "dakkapel.count");
-      if (!rawCount) reasons.push("Het aantal dakkapellen is nog niet bekend.");
-      for (let i = 0; i < Math.min(rawCount ?? 1, 10); i++) {
-        const key = `dakkapel.${i}`;
-        if (!sizeReady(key, false)) reasons.push(`Dakkapel ${i + 1}: breedte of tekening met maten ontbreekt.`);
-        if (!hasFiles(`${key}.roofPhotos`) || !hasFiles(`${key}.insidePhotos`) || (/vervangen|renoveren/.test(value(answers, `${key}.task`)) && !hasFiles(`${key}.existingPhotos`))) reasons.push(`Dakkapel ${i + 1}: noodzakelijke foto's ontbreken.`);
-      }
-      next = reasons.length ? "site" : "review";
-      scope = "dakkapel.0";
-      if (rawCount === 1 && value(answers, `${scope}.sizeMode`) === ownSizes && value(answers, `${scope}.task`) === "Een nieuwe dakkapel plaatsen") size = positive(answers, `${scope}.width`);
-      reasons.push("Productiematen worden vóór bestelling afzonderlijk gecontroleerd.");
     } else if (work === "badkamer") {
       if (!sizeReady(work)) reasons.push("Afmetingen of een tekening met maten ontbreken.");
       if (!hasFiles("badkamer.overviewPhotos") || !hasFiles("badkamer.wallPhotos") || !hasFiles("badkamer.floorPhotos")) reasons.push("Voeg een overzicht, iedere wand en de vloer/douche toe voor beoordeling op afstand.");
@@ -484,6 +452,8 @@ export function outcomes(selected: WorkId[], answers: Answers, files: IntakeFile
       next = "online";
       if (!roomNames(answers).length) reasons.push("Voeg ruimtes en werkzaamheden toe om hoeveelheden te bepalen.");
       reasons.push("Standaard binnenafwerking kan op afstand worden uitgewerkt. Een locatiebezoek is niet standaard nodig.");
+    } else if (work === "bouwtekeningen") {
+      reasons.push("We bespreken welke tekeningen en vergunningbegeleiding bij uw plan passen en stellen daarvoor een offerte op maat op.");
     }
     if (value(answers, "home.method") === "Ik wil direct een opname op locatie plannen" || value(answers, "contact.next") === "Ik wil een opname op locatie plannen") { next = "site"; size = null; }
     const quality = value(answers, `${scope}.quality`);
@@ -499,6 +469,16 @@ export function outcomes(selected: WorkId[], answers: Answers, files: IntakeFile
 }
 
 export function exportIntake(selected: WorkId[], answers: Answers, files: IntakeFiles, receipt?: { reference: string; receivedAt: string }) {
+  if (["Contactformulier", "Offertevragen"].includes(value(answers, "contact.route"))) {
+    return [
+      "bouwregieaanhuis — Uw verbouwplannen",
+      `Project: ${selected.map((id) => workTypes.find((work) => work.id === id)?.name).join(", ")}`,
+      receipt ? `Ontvangen door bouwregieaanhuis.\nAanvraagnummer: ${receipt.reference}\nOntvangen op: ${new Date(receipt.receivedAt).toLocaleString("nl-NL")}` : "Concept — nog geen bevestigde ontvangst door bouwregieaanhuis.",
+      ...quoteSection.questions.map((question) => `${question.label}\n${answerText(question, answers, files)}`),
+      "Vervolg: we bespreken uw wensen en wat nodig is voor een offerte op maat. Geen geboekte afspraak of opdracht.",
+      receipt ? "Bijlagen zijn meegestuurd. Deze kopie bevat alleen de bestandsnamen." : "Deze download bevat alleen uw antwoorden en bestandsnamen. Voeg de oorspronkelijke foto's en documenten zelf toe als u ons e-mailt.",
+    ].join("\n\n");
+  }
   const result = outcomes(selected, answers, files);
   const directSite = value(answers, "home.method") === "Ik wil direct een opname op locatie plannen";
   const area = !directSite && result.some((item) => item.work === "badkamer") ? bathroomAreas(answers) : null;
@@ -508,5 +488,5 @@ export function exportIntake(selected: WorkId[], answers: Answers, files: Intake
     const rate = finishingRates[service];
     return `${room || `Ruimte ${index + 1}`} — ${service}: ${quantity === null ? "hoeveelheid onbekend" : `${quantity.toLocaleString("nl-NL")} ${rate.unit}`}. ${value(answers, `${scope}.quantityMode`)}. ${rate.rate === null ? `Tarief per ${rate.unit} volgt.` : `${euro(rate.rate)} per ${rate.unit}; voorbereiding en uitvoering nog beoordelen.`}`;
   })) : [];
-  return ["bouwaanhuis — Online opname", `Datum: ${new Date().toLocaleDateString("nl-NL")}`, `Werkzaamheden: ${result.map((item) => item.title).join(", ")}`, receipt ? `Status: ontvangen door bouwaanhuis.\nAanvraagnummer: ${receipt.reference}\nOntvangen op: ${new Date(receipt.receivedAt).toLocaleString("nl-NL")}\nVrijblijvende aanvraag; geen geboekte afspraak of definitieve offerte.` : "Status: concept op uw apparaat; nog niet verzonden of geboekt.", "", ...buildSections(selected, answers).flatMap((s) => [s.title.toUpperCase(), ...s.questions.filter((question) => visible(question, answers)).map((question) => `${question.label}\n${answerText(question, answers, files)}`), ""]), "HOEVEELHEDEN", ...measurements, ...(area ? [`Badkamer: vloer ${area.floor.toFixed(2)} m²; bruto wandtegelwerk ${area.wall === null ? "onbekend" : `${area.wall.toFixed(2)} m²`}; netto wandtegelwerk ${area.netWall === null ? "nog te controleren" : `${area.netWall.toFixed(2)} m²`}. Materiaalverlies wordt apart bepaald.`] : []), "VERVOLGSTAPPEN", ...result.flatMap((item) => [item.title, ...(item.estimate ? [`${euro(item.estimate.low)} – ${euro(item.estimate.high)}`, item.estimateNote!] : ["Nog te calculeren; onbekende posten zijn niet als nul opgenomen."]), ...item.reasons, ...(!directSite && value(answers, `${item.work}.permitConclusion`) ? [value(answers, `${item.work}.permitConclusion`)] : []), ""]), receipt ? "Uw oorspronkelijke bijlagen zijn meegestuurd met uw aanvraag. Deze kopie bevat alleen de bestandsnamen, niet de bestanden zelf." : "Bijlagen worden lokaal bewaard en staan niet in deze tekst of pdf. Verstuur de oorspronkelijke bestanden afzonderlijk bij uw aanvraag."].join("\n\n");
+  return ["bouwregieaanhuis — Online opname", `Datum: ${new Date().toLocaleDateString("nl-NL")}`, `Werkzaamheden: ${result.map((item) => item.title).join(", ")}`, receipt ? `Status: ontvangen door bouwregieaanhuis.\nAanvraagnummer: ${receipt.reference}\nOntvangen op: ${new Date(receipt.receivedAt).toLocaleString("nl-NL")}\nVrijblijvende aanvraag; geen geboekte afspraak of definitieve offerte.` : "Status: concept op uw apparaat; nog niet verzonden of geboekt.", "", ...buildSections(selected, answers).flatMap((s) => [s.title.toUpperCase(), ...s.questions.filter((question) => visible(question, answers)).map((question) => `${question.label}\n${answerText(question, answers, files)}`), ""]), "HOEVEELHEDEN", ...measurements, ...(area ? [`Badkamer: vloer ${area.floor.toFixed(2)} m²; bruto wandtegelwerk ${area.wall === null ? "onbekend" : `${area.wall.toFixed(2)} m²`}; netto wandtegelwerk ${area.netWall === null ? "nog te controleren" : `${area.netWall.toFixed(2)} m²`}. Materiaalverlies wordt apart bepaald.`] : []), "VERVOLGSTAPPEN", ...result.flatMap((item) => [item.title, ...(item.estimate ? [`${euro(item.estimate.low)} – ${euro(item.estimate.high)}`, item.estimateNote!] : ["Nog te calculeren; onbekende posten zijn niet als nul opgenomen."]), ...item.reasons, ...(!directSite && value(answers, `${item.work}.permitConclusion`) ? [value(answers, `${item.work}.permitConclusion`)] : []), ""]), receipt ? "Uw oorspronkelijke bijlagen zijn meegestuurd met uw aanvraag. Deze kopie bevat alleen de bestandsnamen, niet de bestanden zelf." : "Bijlagen worden lokaal bewaard en staan niet in deze tekst of pdf. Verstuur de oorspronkelijke bestanden afzonderlijk bij uw aanvraag."].join("\n\n");
 }

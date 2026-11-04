@@ -128,3 +128,42 @@ test("confirmed downloads include the receipt without conflicting draft status",
   const pdf = createIntakePdf(text, true);
   assert(pdf.getNumberOfPages() >= 1);
 });
+
+test("simple renovation contact keeps descriptions, previous quote answers and photos without technical questions", async (t) => {
+  configure(t);
+  const contact = { ...answers, "contact.route": "Contactformulier", "contact.notes": "Complete begane grond renoveren", "contact.phone": "0612345678", "contact.city": "Amsterdam", "contact.scope": "Ik heb een eerste idee", "contact.size": "80 m²", "contact.finish": "Alles, van voorbereiding tot oplevering", "contact.planning": "Binnen 3 tot 6 maanden", "contact.budget": "€ 50.000 – € 100.000", "badkamer.width": "stale" };
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    const payload = JSON.parse(options.body.get("intake"));
+    for (const [key, value] of Object.entries(contact).filter(([key]) => key.startsWith("contact."))) assert.equal(payload.answers[key], value);
+    assert.equal(payload.answers["badkamer.width"], undefined);
+    assert.equal(await options.body.get("file:contact.photos").text(), "photo");
+    assert.equal(options.body.get("file:badkamer.overviewPhotos"), null);
+    assert.match(options.body.get("dossier"), /Complete begane grond renoveren/);
+    assert.match(options.body.get("dossier"), /ruimte.jpg/);
+    assert.doesNotMatch(options.body.get("dossier"), /HOEVEELHEDEN|Afmetingen.*ontbreken/);
+    const reference = options.headers["Idempotency-Key"];
+    return Response.json({ accepted: true, reference, receivedAt: "2026-11-05T12:00:00Z" });
+  });
+  const response = await POST(request({ selected: ["renovatie"], answers: contact }, { "contact.photos": photo, "badkamer.overviewPhotos": photo }));
+  assert.equal(response.status, 200);
+  assert(isIntakeReceipt(await response.json()));
+});
+
+test("guided quotes accept unknown measurements and optional photos, but require a description", async (t) => {
+  configure(t);
+  let delivered = 0;
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    delivered++;
+    const payload = JSON.parse(options.body.get("intake"));
+    assert.equal(payload.answers["contact.route"], "Offertevragen");
+    assert.equal(payload.answers["contact.size"], undefined);
+    const reference = options.headers["Idempotency-Key"];
+    return Response.json({ accepted: true, reference, receivedAt: "2026-11-05T12:00:00Z" });
+  });
+  const guided = { ...answers, "contact.route": "Offertevragen", "contact.notes": "Graag een uitbouw, advies over de mogelijkheden" };
+  assert.equal((await POST(request({ selected: ["uitbouw"], answers: guided }))).status, 200);
+  assert.equal((await POST(request({ answers: { ...guided, "contact.notes": "   " } }))).status, 400);
+  assert.equal((await POST(request({ selected: ["dakkapel"], answers: guided }))).status, 400);
+  assert.equal((await POST(request({ selected: ["bouwtekeningen"], answers: { ...guided, "contact.notes": "Graag bouwtekeningen en begeleiding bij de vergunningaanvraag", "contact.finish": "Bouwtekeningen en vergunningbegeleiding" } }))).status, 200);
+  assert.equal(delivered, 2);
+});

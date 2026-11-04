@@ -5,9 +5,9 @@ export const workTypes = [
   { id: "dakopbouw", name: "Dakopbouw", short: "Dakopbouw", detail: "Een extra verdieping thuis", icon: "house" as IconName, unit: "m²", defaultSize: 40, min: 5, max: 200, low: null, high: null, base: null },
   { id: "badkamer", name: "Badkamer", short: "Badkamer", detail: "Uw eigen plek voor rust", icon: "bath" as IconName, unit: "m²", defaultSize: 8, min: 2, max: 40, low: 1100, high: 1700, base: 3000 },
   { id: "keuken", name: "Keuken", short: "Keuken", detail: "Het hart van uw huis", icon: "kitchen" as IconName, unit: "m²", defaultSize: 12, min: 4, max: 60, low: 650, high: 1100, base: 5000 },
-  { id: "dakkapel", name: "Dakkapel", short: "Dakkapel", detail: "Licht en ruimte op zolder", icon: "roof" as IconName, unit: "m breed", defaultSize: 4, min: 2, max: 10, low: 1800, high: 2600, base: 1500 },
   { id: "renovatie", name: "Totale renovatie", short: "Renovatie", detail: "Een nieuw begin, thuis", icon: "renovation" as IconName, unit: "m²", defaultSize: 80, min: 15, max: 300, low: 750, high: 1250, base: 5000 },
   { id: "afwerking", name: "Binnenafwerking", short: "Afwerking", detail: "Het verschil zit in de details", icon: "paint" as IconName, unit: "m²", defaultSize: 40, min: 5, max: 300, low: 90, high: 160, base: 750 },
+  { id: "bouwtekeningen", name: "Bouwtekeningen & vergunningen", short: "Tekeningen & vergunningen", detail: "Van woonidee naar een uitgewerkt plan", icon: "file" as IconName, unit: "project", defaultSize: 1, min: 1, max: 1, low: null, high: null, base: null },
 ] as const;
 
 export type WorkId = typeof workTypes[number]["id"];

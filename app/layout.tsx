@@ -8,9 +8,9 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "bouwaanhuis | Grootse plannen. Een helder begin.",
+  title: "bouwregieaanhuis | Uw verbouwing. Zonder het regelwerk.",
   description:
-    "Vertel ons over uw uitbouw, badkamer, keuken of renovatie. Breng uw wensen in kaart en deel uw vrijblijvende aanvraag. Samen bespreken we de mogelijkheden en kosten.",
+    "Uw complete renovatie van eerste plan tot oplevering. bouwregieaanhuis regelt vakmensen, planning en bouwbegeleiding. Beschrijf uw plannen en vraag vrijblijvend een offerte aan.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

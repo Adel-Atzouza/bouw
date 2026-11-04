@@ -2,12 +2,12 @@ import { jsPDF } from "jspdf";
 
 export function createIntakePdf(content: string, received = false) {
   const document = new jsPDF({ unit: "mm", format: "a4", compress: true });
-  document.setProperties({ title: "bouwaanhuis | Online opname", author: "bouwaanhuis", creator: "bouwaanhuis", subject: "Uw woonwensen, keuzes en prijsbasis" });
+  document.setProperties({ title: "bouwregieaanhuis | Online opname", author: "bouwregieaanhuis", creator: "bouwregieaanhuis", subject: "Uw woonwensen, keuzes en prijsbasis" });
   document.setLanguage("nl");
   let y = 43;
   function header() {
     document.setFillColor("#7c3045"); document.rect(0, 0, 210, 31, "F");
-    document.setTextColor("#ffffff"); document.setFont("helvetica", "bold"); document.setFontSize(21); document.text("bouwaanhuis", 18, 17);
+    document.setTextColor("#ffffff"); document.setFont("helvetica", "bold"); document.setFontSize(21); document.text("bouwregieaanhuis", 18, 17);
     document.setFontSize(8); document.setFont("helvetica", "normal"); document.text("Uw online opname · Een goed begin voor uw verbouwing", 18, 25);
   }
   header();

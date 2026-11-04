@@ -19,6 +19,7 @@ export type PermitSession = {
 };
 export const emptyFlow = (): PermitFlow => ({ works: [], history: [], result: null, checkedAt: null });
 export const newPermitSession = (context?: { postcode: string; houseNumber: string }): PermitSession => ({ version: 2, environment: null, mode: "check", stage: "intro", postcode: context?.postcode ?? "", houseNumber: context?.houseNumber.match(/^\d+/)?.[0] ?? "", address: null, geometry: null, locationConfirmed: false, check: emptyFlow(), application: emptyFlow() });
+// Preserve existing saved checks across the rebrand.
 export const permitStorageKey = "bouwaanhuis.permit.v2";
 
 // Stored results are never trusted as current: resuming always reruns the rules.

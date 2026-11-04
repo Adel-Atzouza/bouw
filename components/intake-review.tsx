@@ -15,11 +15,11 @@ const nextLabels = { site: "Opname op locatie nodig", review: "Uw dossier laten 
 const priceItems: Record<WorkId, string[]> = {
   uitbouw: ["Oppervlakte en uitvoering", "Sloop en afvoer", "Fundering, geveldoorbraak en constructie", "Kozijnen, installaties en afwerking", "Bereikbaarheid en bouwplaats"],
   dakopbouw: ["Oppervlakte en bouwwijze", "Dakverwijdering en constructieve aanpassingen", "Trap en installaties", "Gevel, kozijnen en afwerking", "Hijs- en steigerwerk"],
-  dakkapel: ["Type en breedte per dakkapel", "Kozijnen en buitenafwerking", "Binnenafwerking en extra's", "Verwijderen bestaande dakkapel", "Plaatsing en controle productiematen"],
   badkamer: ["Sloop en afvoer", "Ondergrondherstel, egalisatie en waterdichting", "Wand- en vloertegelwerk afzonderlijk", "Tegelformaat, patroon, nissen en details", "Sanitair en meubels: levering en montage apart", "Leidingen, elektra, ventilatie en plafond"],
-  keuken: ["Keukenlevering volgens partner of leverancier", "Demonteren en afvoeren", "Water, afvoer, elektra en ventilatie", "Wanden, plafond en vloer", "Montage door bouwaanhuis óf de keukenleverancier"],
+  keuken: ["Keukenlevering volgens partner of leverancier", "Demonteren en afvoeren", "Water, afvoer, elektra en ventilatie", "Wanden, plafond en vloer", "Montage door bouwregieaanhuis óf de keukenleverancier"],
   afwerking: ["Hoeveelheid per ruimte en werkzaamheid", "Ondergrond en voorbereiding", "Gekozen materiaal en afwerking", "Bereikbaarheid en bescherming"],
   renovatie: ["Deelbegrotingen per ruimte", "Constructie en installaties", "Fasering en bewoning", "Bouwplaats, afvoer en begeleiding één keer"],
+  bouwtekeningen: ["Benodigde bouwtekeningen en bestaande stukken", "Voorbereiding en begeleiding van de vergunningaanvraag", "Afstemming met de gemeente", "Eventuele aanvullende onderzoeken en gemeentelijke kosten apart"],
 };
 
 export function IntakeReview({ selected, answers, files, onEdit, onPermit, onContinue }: { selected: WorkId[]; answers: Answers; files: IntakeFiles; onContinue: () => void; onEdit: (id: string) => void; onPermit: (work: string) => void }) {
@@ -38,7 +38,7 @@ export function IntakeReview({ selected, answers, files, onEdit, onPermit, onCon
     setDownloading(true); setError("");
     try {
       const { createIntakePdf } = await import("@/lib/intake-pdf");
-      await createIntakePdf(exportIntake(selected, answers, files)).save("bouwaanhuis-online-opname.pdf", { returnPromise: true });
+      await createIntakePdf(exportIntake(selected, answers, files)).save("bouwregieaanhuis-online-opname.pdf", { returnPromise: true });
     } catch { setError("De pdf kon niet worden gemaakt. Probeer opnieuw of download het tekstbestand."); }
     finally { setDownloading(false); }
   }
@@ -50,7 +50,7 @@ export function IntakeReview({ selected, answers, files, onEdit, onPermit, onCon
       {!result.estimate && <p className="intake-hint">{result.work === "afwerking" ? "Bekijk hieronder de hoeveelheden en prijsbasis per werkzaamheid." : "Een prijs volgt na aanvulling en calculatie van uw gekozen werkzaamheden."}</p>}
       <ul>{result.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
       <details><summary>Zo wordt uw prijs opgebouwd</summary><ul>{priceItems[result.work].map((item) => <li key={item}>{item}</li>)}</ul></details>
-      {["uitbouw", "dakopbouw", "dakkapel"].includes(result.work) && <div className="intake-permit-followup"><button className="text-link" onClick={() => onPermit(result.work)}><Icon name="shield" size={16} />Vergunningcheck en aanvraag voorbereiden</button>{value(answers, `${result.work}.permitConclusion`) && <p>{value(answers, `${result.work}.permitConclusion`)}</p>}</div>}
+      {["uitbouw", "dakopbouw"].includes(result.work) && <div className="intake-permit-followup"><button className="text-link" onClick={() => onPermit(result.work)}><Icon name="shield" size={16} />Vergunningcheck en aanvraag voorbereiden</button>{value(answers, `${result.work}.permitConclusion`) && <p>{value(answers, `${result.work}.permitConclusion`)}</p>}</div>}
     </article>)}</div>
     {areas && <div className="intake-quantities"><h4>Badkamer · berekende oppervlakken</h4><dl><div><dt>Vloeroppervlakte</dt><dd>{decimal(areas.floor)} m²</dd></div><div><dt>Bruto wandtegelwerk</dt><dd>{areas.wall === null ? "Nog niet te berekenen" : `${decimal(areas.wall)} m²`}</dd></div><div><dt>Na aftrek van deuren en ramen</dt><dd>{areas.netWall === null ? "Maten nog te controleren" : `${decimal(areas.netWall)} m²`}</dd></div></dl><p className="intake-hint">Controleer deze hoeveelheden. Snijverlies voor de materiaalbestelling wordt apart bepaald. Een afwijkende vorm, douche of nis kan een aanvullende berekening vragen.</p></div>}
     {!directSite && results.some((result) => result.work === "afwerking") && <div className="intake-quantities"><h4>Binnenafwerking · hoeveelheden en prijsbasis</h4>
@@ -70,8 +70,8 @@ export function IntakeReview({ selected, answers, files, onEdit, onPermit, onCon
       {needsPartner && (showroomUrl ? <a className="button button-bordeaux" href={showroomUrl} target="_blank" rel="noopener noreferrer">Plan een showroomafspraak <Icon name="arrow-up" size={16} /></a> : <p>Bewaar uw showroomwens in dit dossier. De online agenda van de keukenpartner is nog niet beschikbaar; er is geen showroomafspraak geboekt.</p>)}
       {needsPermit && <p>Uw voorkeur voor vergunningbegeleiding staat in het dossier. Een voorstel benoemt de benodigde tekeningen, berekeningen en begeleiding, met gemeentelijke kosten apart. Dit is nog geen opdracht of ingediende vergunningaanvraag.</p>}
       {!needsSite && !needsPartner && !needsPermit && <p>Download uw dossier om uw plannen te laten beoordelen. Voor binnenafwerking en een duidelijke badkamer- of keukenopname kan dit op afstand.</p>}
-      <div className="intake-downloads"><button className="button button-bordeaux" disabled={downloading} onClick={downloadPdf}><Icon name="download" size={17} />{downloading ? "Uw pdf wordt gemaakt…" : "Download mijn dossier (PDF)"}</button><button className="text-link" onClick={() => downloadText("bouwaanhuis-online-opname.txt", exportIntake(selected, answers, files))}>Als tekstbestand</button></div>
-      {contactEmail && <a className="button button-outline" href={`mailto:${contactEmail}?subject=${encodeURIComponent(`${subject} — bouwaanhuis`)}&body=${encodeURIComponent(`Beste bouwaanhuis,\n\nGraag bespreek ik mijn online opname met u.\nGewenst vervolg: ${subject}\nProjectadres: ${value(answers, "home.postcode")} ${value(answers, "home.number")}\nNaam: ${value(answers, "contact.name")}\nTelefoon: ${value(answers, "contact.phone")}\n\nIk voeg mijn gedownloade dossier en oorspronkelijke bijlagen toe.\n`)}`}>Open aanvraag in uw e-mailprogramma <Icon name="arrow" size={16} /></a>}
+      <div className="intake-downloads"><button className="button button-bordeaux" disabled={downloading} onClick={downloadPdf}><Icon name="download" size={17} />{downloading ? "Uw pdf wordt gemaakt…" : "Download mijn dossier (PDF)"}</button><button className="text-link" onClick={() => downloadText("bouwregieaanhuis-online-opname.txt", exportIntake(selected, answers, files))}>Als tekstbestand</button></div>
+      {contactEmail && <a className="button button-outline" href={`mailto:${contactEmail}?subject=${encodeURIComponent(`${subject} — bouwregieaanhuis`)}&body=${encodeURIComponent(`Beste bouwregieaanhuis,\n\nGraag bespreek ik mijn online opname met u.\nGewenst vervolg: ${subject}\nProjectadres: ${value(answers, "home.postcode")} ${value(answers, "home.number")}\nNaam: ${value(answers, "contact.name")}\nTelefoon: ${value(answers, "contact.phone")}\n\nIk voeg mijn gedownloade dossier en oorspronkelijke bijlagen toe.\n`)}`}>Open aanvraag in uw e-mailprogramma <Icon name="arrow" size={16} /></a>}
       <p className="intake-hint">Uw pdf bevat uw antwoorden en de namen van uw bijlagen. Voeg de oorspronkelijke foto&apos;s en documenten apart toe wanneer u het dossier deelt. Er wordt vanuit dit scherm niets automatisch verzonden.</p>
       {error && <p className="error-notice" role="alert">{error}</p>}
     </div></details>
