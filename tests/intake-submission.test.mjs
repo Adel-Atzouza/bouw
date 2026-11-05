@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { registerHooks, stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 
@@ -10,11 +13,12 @@ registerHooks({
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if (/\/(lib\/(intake|intake-submission|pricing|intake-pdf)|app\/api\/intake\/route)\.ts$/.test(url)) return { format: "module", source: stripTypeScriptTypes(readFileSync(new URL(url), "utf8")), shortCircuit: true };
+    if (/\/(lib\/(intake|intake-server|intake-submission|pricing|intake-pdf)|app\/api\/intake\/route)\.ts$/.test(url)) return { format: "module", source: stripTypeScriptTypes(readFileSync(new URL(url), "utf8")), shortCircuit: true };
     return nextLoad(url, context);
   },
 });
 
+const { readStoredIntake, readDelivery, forwardStoredIntake } = await import("../lib/intake-server.ts");
 const { GET, POST } = await import("../app/api/intake/route.ts");
 const { activeIntake, isIntakeReceipt, supportedIntakeFile } = await import("../lib/intake-submission.ts");
 const { exportIntake } = await import("../lib/intake.ts");
@@ -24,11 +28,14 @@ const requestId = "7b139dd5-f3c4-43d6-96a8-3e806d5b06c2";
 const photo = new File(["photo"], "ruimte.jpg", { type: "image/jpeg" });
 
 function configure(t, connected = true) {
-  for (const [key, value] of Object.entries({ INTAKE_WEBHOOK_URL: connected ? "https://receiver.example.test/intake" : "", INTAKE_WEBHOOK_TOKEN: connected ? "test-token" : "" })) {
+  const root = mkdtempSync(join(tmpdir(), "bouw-intake-test-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  for (const [key, value] of Object.entries({ INTAKE_STORAGE_DIR: root, INTAKE_WEBHOOK_URL: connected ? "https://receiver.example.test/intake" : "", INTAKE_WEBHOOK_TOKEN: connected ? "test-token" : "" })) {
     const original = process.env[key];
     process.env[key] = value;
     t.after(() => { if (original === undefined) delete process.env[key]; else process.env[key] = original; });
   }
+  return root;
 }
 
 function request(overrides = {}, attachments = {}, headers = {}) {
@@ -39,14 +46,28 @@ function request(overrides = {}, attachments = {}, headers = {}) {
   return new Request("http://localhost:3000/api/intake", { method: "POST", headers: { Origin: "http://localhost:3000", ...headers }, body: data });
 }
 
-test("unconfigured delivery is unavailable and cannot report success", async (t) => {
-  configure(t, false);
-  assert.deepEqual(await GET().json(), { available: false });
+test("without email configured, enquiries and photos are privately stored and survive a fresh process", async (t) => {
+  const root = configure(t, false);
+  assert.deepEqual(await (await GET()).json(), { available: true });
   t.mock.method(globalThis, "fetch", () => assert.fail("No delivery should be attempted"));
-  assert.equal((await POST(request())).status, 503);
+  const response = await POST(request({}, { "badkamer.overviewPhotos": photo }));
+  assert.equal(response.status, 200);
+  const receipt = await response.json();
+  assert(isIntakeReceipt(receipt));
+  const record = await readStoredIntake(receipt.reference);
+  assert.equal(record.answers["contact.email"], answers["contact.email"]);
+  assert.equal(record.attachments.length, 1);
+  assert.equal(readFileSync(join(root, receipt.reference, record.attachments[0].storedName), "utf8"), "photo");
+  assert.match(readFileSync(join(root, receipt.reference, "dossier.txt"), "utf8"), /ontvangen door bouwregieaanhuis/);
+  assert.equal((await readDelivery(receipt.reference)).status, "pending");
+  assert.equal(statSync(join(root, receipt.reference)).mode & 0o777, 0o700);
+  assert.equal(statSync(join(root, receipt.reference, "intake.json")).mode & 0o777, 0o600);
+  const child = spawnSync(process.execPath, ["--experimental-strip-types", "scripts/intakes.mjs", "show", receipt.reference], { encoding: "utf8", env: process.env });
+  assert.equal(child.status, 0, child.stderr);
+  assert.equal(JSON.parse(child.stdout).reference, receipt.reference);
 });
 
-test("receipt requires confirmed delivery, includes attachments, and deduplicates unchanged retries", async (t) => {
+test("receipt follows server storage, forwarding includes attachments, and retries do not duplicate delivery", async (t) => {
   configure(t);
   const keys = [];
   t.mock.method(globalThis, "fetch", async (url, options) => {
@@ -67,7 +88,8 @@ test("receipt requires confirmed delivery, includes attachments, and deduplicate
     assert.equal(response.status, 200);
     assert.equal(isIntakeReceipt(await response.json()), true);
   }
-  assert.equal(keys[0], keys[1]);
+  assert.equal(keys.length, 1);
+  assert.equal((await readDelivery(keys[0])).status, "delivered");
 });
 
 test("edits use a different delivery reference", async (t) => {
@@ -83,23 +105,51 @@ test("edits use a different delivery reference", async (t) => {
   assert.notEqual(references[0], references[1]);
 });
 
-test("a 200 response without the matching durable receipt is a recoverable failure", async (t) => {
+test("unacknowledged forwarding stays pending while the visitor receives the saved receipt", async (t) => {
   configure(t);
-  for (const result of [{}, { accepted: true, reference: "wrong", receivedAt: "2026-10-07" }, { accepted: true }]) {
-    const mock = t.mock.method(globalThis, "fetch", async () => Response.json(result));
-    const response = await POST(request());
-    assert.equal(response.status, 502);
-    assert.equal(isIntakeReceipt(await response.json()), false);
-    mock.mock.restore();
-  }
+  const mock = t.mock.method(globalThis, "fetch", async () => Response.json({ accepted: true, reference: "wrong", receivedAt: "2026-10-07" }));
+  const response = await POST(request());
+  assert.equal(response.status, 200);
+  const receipt = await response.json();
+  assert(isIntakeReceipt(receipt));
+  assert.equal((await readDelivery(receipt.reference)).status, "pending");
+  mock.mock.restore();
+  t.mock.method(globalThis, "fetch", async (_url, options) => Response.json({ accepted: true, reference: options.headers["Idempotency-Key"], receivedAt: "2026-11-05T12:00:00Z" }));
+  await forwardStoredIntake(await readStoredIntake(receipt.reference));
+  const delivery = await readDelivery(receipt.reference);
+  assert.equal(delivery.status, "delivered");
+  assert.equal(delivery.attempts, 2);
+  assert.equal((await readStoredIntake(receipt.reference)).receivedAt, receipt.receivedAt);
 });
 
-test("network failures preserve uncertainty instead of claiming received or not delivered", async (t) => {
+test("network failures do not lose server-saved enquiries", async (t) => {
   configure(t);
   t.mock.method(globalThis, "fetch", async () => { throw new Error("timeout"); });
   const response = await POST(request());
-  assert.equal(response.status, 502);
-  assert.match((await response.json()).error, /ontvangst nog niet bevestigen/);
+  assert.equal(response.status, 200);
+  const receipt = await response.json();
+  assert.equal((await readStoredIntake(receipt.reference)).reference, receipt.reference);
+  assert.equal((await readDelivery(receipt.reference)).status, "pending");
+});
+
+test("storage failures never return a success receipt", async (t) => {
+  const root = configure(t, false);
+  const blocked = join(root, "not-a-directory");
+  writeFileSync(blocked, "blocked");
+  process.env.INTAKE_STORAGE_DIR = blocked;
+  assert.deepEqual(await (await GET()).json(), { available: false });
+  const response = await POST(request());
+  assert.equal(response.status, 503);
+  assert.equal(isIntakeReceipt(await response.json()), false);
+});
+
+test("simultaneous retries save one complete enquiry with the same receipt", async (t) => {
+  const root = configure(t, false);
+  const results = await Promise.all(Array.from({ length: 4 }, () => POST(request({}, { "badkamer.overviewPhotos": photo }))));
+  const receipts = await Promise.all(results.map((response) => response.json()));
+  assert(results.every((response) => response.status === 200));
+  receipts.forEach((receipt) => assert.deepEqual(receipt, receipts[0]));
+  assert.deepEqual(readdirSync(root), [receipts[0].reference]);
 });
 
 test("contact, consent, work selection, file type and cross-origin checks block invalid submissions", async (t) => {
@@ -146,7 +196,9 @@ test("simple renovation contact keeps descriptions, previous quote answers and p
   });
   const response = await POST(request({ selected: ["renovatie"], answers: contact }, { "contact.photos": photo, "badkamer.overviewPhotos": photo }));
   assert.equal(response.status, 200);
-  assert(isIntakeReceipt(await response.json()));
+  const receipt = await response.json();
+  assert(isIntakeReceipt(receipt));
+  assert.equal((await readDelivery(receipt.reference)).status, "delivered");
 });
 
 test("guided quotes accept unknown measurements and optional photos, but require a description", async (t) => {

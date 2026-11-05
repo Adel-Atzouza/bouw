@@ -28,11 +28,11 @@ pnpm start
 
 De homepage zet complete renovaties en de begeleiding van het hele traject voorop. De zes aanvullende diensten zijn aan-/uitbouw, badkamer, keuken, dakopbouw, binnenafwerking en bouwtekeningen & vergunningen. De laatste dienst is ook los aan te vragen, met gerichte vragen over tekeningen en vergunningbegeleiding. Dakkapellen zijn verwijderd uit het aanbod, de opnameroutes en de suggesties voor de vergunningcheck.
 
-`components/quote-request.tsx` biedt twee ingangen naar dezelfde aanvraag: een normaal contactformulier voor complete renovaties en een korte offertevragenlijst voor de overige werkzaamheden. De offertevragen behandelen project, wensen en planning; technische antwoorden zijn optioneel. Een blijvend zichtbare knop ‘Liever persoonlijk contact’ opent onmiddellijk het contactformulier, ook vanuit de vergunninghulp. Ingevoerde offerteantwoorden, contactgegevens en bestanden blijven tijdens het wisselen behouden. Er is geen automatische opslag na het sluiten of herladen van de pagina.
+`components/quote-request.tsx` biedt twee ingangen naar dezelfde aanvraag: een normaal contactformulier voor complete renovaties en een korte offertevragenlijst voor de overige werkzaamheden. De offertevragen behandelen project, wensen en planning; technische antwoorden zijn optioneel. Een blijvend zichtbare knop ‘Liever persoonlijk contact’ opent onmiddellijk het contactformulier, ook vanuit de vergunninghulp. Ingevoerde offerteantwoorden, contactgegevens en bestanden blijven tijdens het wisselen behouden. Niet-verzonden invoer blijft alleen tijdens dit bezoek beschikbaar. Na versturen staat de aanvraag met de bijlagen op de server.
 
-Het formulier vraagt naam, e-mailadres en een omschrijving. Telefoonnummer, plaats en foto's/PDF zijn optioneel. Maximaal 10 bestanden, 20 MB per bestand en 100 MB samen. Beide routes gebruiken `/api/intake` en dezelfde bevestigde webhookontvangst als de eerdere opname. De API bewaart de contactformuliergegevens en uploads via de aparte `contact.request`-sectie; technische intakevragen zijn hiervoor niet nodig. Zonder ontvangstdienst wordt geen ontvangst gesimuleerd: het formulier meldt de ontbrekende verzending en biedt een tekstdownload en telefoon/e-mail als alternatief.
+Het formulier vraagt naam, e-mailadres en een omschrijving. Telefoonnummer, plaats en foto's/PDF zijn optioneel. Maximaal 10 bestanden, 20 MB per bestand en 100 MB samen. Beide routes gebruiken `/api/intake`. De API slaat de aanvraag en de oorspronkelijke bijlagen eerst privé op de server op en geeft daarna een ontvangstbewijs terug. Technische intakevragen en een e-mailkoppeling zijn daarvoor niet nodig. Het klantformulier heeft geen download- of bewaarknop. Een opslagfout toont een herstelbare fout en nooit een geslaagde ontvangst.
 
-De contactgegevens staan centraal in `lib/contact.ts`. De tijdelijke voorbeeldgegevens zijn **020 000 0000** en **info@bouwregieaanhuis.example**; vervang deze vóór gebruik door `NEXT_PUBLIC_CONTACT_PHONE` en `NEXT_PUBLIC_CONTACT_EMAIL` in te stellen en opnieuw te bouwen. Het `.example`-adres ontvangt geen e-mail. Stel ook `INTAKE_WEBHOOK_URL` en `INTAKE_WEBHOOK_TOKEN` in om formulieraanvragen met foto's te ontvangen; zie het ontvangstcontract hieronder.
+De contactgegevens staan centraal in `lib/contact.ts`. De tijdelijke voorbeeldgegevens zijn **020 000 0000** en **info@bouwregieaanhuis.example**; vervang deze vóór gebruik door `NEXT_PUBLIC_CONTACT_PHONE` en `NEXT_PUBLIC_CONTACT_EMAIL` in te stellen en opnieuw te bouwen. Het `.example`-adres ontvangt geen e-mail. De server ontvangt aanvragen zonder e-mailconfiguratie. Met `INTAKE_WEBHOOK_URL` en `INTAKE_WEBHOOK_TOKEN` kunt u ze aanvullend laten doorsturen; zie hieronder.
 
 De oudere gedetailleerde opnamecomponenten blijven in de broncode beschikbaar maar worden niet door de homepage geladen. Onderstaande opnamedocumentatie beschrijft die implementatie.
 
@@ -64,23 +64,47 @@ Optionele publieke instellingen in `.env.local` (opnieuw bouwen na wijzigen):
 
 Zonder deze gegevens toont de site een downloadbaar dossier en meldt dat online tijdsloten nog niet beschikbaar zijn. Er worden geen fictieve tijden, prijzen, producten of bevestigingen getoond. Een externe agenda moet werkgebied, duur, kosten, reservering en bevestiging afhandelen. Gegevens worden niet automatisch naar die agenda verzonden. Voor een productcatalogus en geïntegreerde reserveringen is nog een bijbehorende bedrijfsintegratie nodig. Online aanvragen gebruiken de ontvangstdienst hieronder.
 
-### Aanvraag versturen en ontvangstbevestiging
+### Aanvraag ontvangen, bewaren en terugvinden
 
-Na het overzicht volgt een aparte stap met contactgegevens, expliciete toestemming en een samenvatting van wat wordt gedeeld. Naam en e-mailadres zijn verplicht voor versturen; downloaden blijft zonder deze gegevens mogelijk. Optionele vragen, duidelijke selectiekaarten, de onderdelenlijst en de volgende stap helpen klanten door de opname.
+`POST /api/intake` valideert contactgegevens, toestemming, werkzaamheden en bijlagen. Alleen actieve antwoorden en bestanden worden opgeslagen. De limieten zijn 100 bestanden, 20 MB per bestand en 100 MB samen (het korte klantformulier beperkt de selectie tot 10 bestanden). Stem de uploadlimiet van de hosting hierop af.
 
-Stel server-side `INTAKE_WEBHOOK_URL` (HTTPS) en `INTAKE_WEBHOOK_TOKEN` in voor de echte ontvangstdienst. `GET /api/intake` geeft alleen de beschikbaarheid terug. Zonder configuratie toont de laatste stap downloaden en, als ingesteld, de e-mailoptie; er wordt geen ontvangst gesimuleerd.
+De standaard opslaglocatie is `.data/intakes/` buiten `public/`, uitgesloten van Git. Stel `INTAKE_STORAGE_DIR` op de productieserver in op een **blijvend beschikbare, geback-upte schijf**, bijvoorbeeld `/var/lib/bouwregieaanhuis/intakes`. De Node-server moet daar kunnen schrijven. Deze filesystemopslag is bedoeld voor een server met blijvende schijfruimte; een tijdelijke/serverless schijf of een map die bij elke deployment vervangen wordt is daarvoor niet geschikt. Gebruik bij meerdere serverinstanties dezelfde opslag. Er is geen openbaar endpoint om aanvragen of foto's terug te lezen.
 
-`POST /api/intake` valideert de aanvraag en verstuurt multipart-formdata naar de ontvangstdienst, met `Authorization: Bearer <token>` en `Idempotency-Key: BAH-…`. De velden zijn `reference`, `intake` (JSON met `selected`, actieve `answers` en `consent`), `dossier` (leesbare concepttekst), en herhaalde `file:<vraag-id>` velden met de echte bijlagen. Antwoorden en bestanden uit verlaten routes gaan niet mee. Limieten: 100 bestanden, 20 MB per bestand, 100 MB samen; stem de uploadlimieten van de hosting en ontvangstdienst hierop af.
+Elke aanvraag krijgt een map `BAH-…` met:
 
-De ontvangstdienst moet de aanvraag **duurzaam bewaren of afleveren**, retries op dezelfde idempotentiesleutel dedupliceren en pas daarna antwoorden met een succesvolle HTTP-status en:
+- `intake.json`: contactgegevens, antwoorden, ontvangsttijd, toestemming en bijlagenlijst.
+- `dossier.txt`: een leesbare samenvatting voor het bedrijf.
+- `attachment-001.jpg` enzovoort: de oorspronkelijke bijlagen; de oorspronkelijke bestandsnamen staan in `intake.json`.
+- `delivery.json`: status van de optionele doorsturing (`pending` of `delivered`) en pogingen.
 
-```json
-{ "accepted": true, "reference": "BAH-<16 hoofdletter hextekens uit de aanvraag>", "receivedAt": "2026-10-07T12:00:00.000Z" }
+Bestanden worden met beperkte rechten geschreven en gesynchroniseerd. Een tijdelijke map wordt pas na volledige opslag atomair gepubliceerd; daarna volgt de ontvangstbevestiging. Herhaalde of gelijktijdige identieke verzoeken krijgen hetzelfde kenmerk en ontvangsttijdstip. Een opslagfout geeft HTTP 503 en behoudt de invoer in het geopende formulier voor opnieuw proberen.
+
+Bekijk aanvragen op de server vanuit deze checkout met Node.js 22.15 of hoger:
+
+```bash
+npm run intakes -- list
+npm run intakes -- show BAH-0123456789ABCDEF
 ```
 
-Een herhaalde aanvraag retourneert hetzelfde ontvangstbewijs. Zonder deze bevestiging blijven de gegevens in de browser beschikbaar en verschijnt een herstelbare fout. De website bewaart zelf geen serverdossier. Richt voor de publieke ontvangstdienst ook de gebruikelijke opslag, toegangsbeheer en spam-/verkeersbeperking op de hosting in.
+Deze beheercommando's laden `.env` en `.env.local`. Ze vereisen toegang tot de server; er komt geen onbeveiligde beheerpagina bij. Foto's staan in de aanvraagmap. Back-ups, bewaartermijnen en opruimen worden door de beheerder van de server geregeld.
 
-De ontvangstpagina toont een aanvraagnummer, tijdstip, download en drie vervolgstappen: dossier beoordelen, persoonlijk contact, en een passende offerte of locatieafspraak bespreken. Er wordt geen automatische bevestigingsmail of niet-afgesproken reactietermijn beloofd. Voeg pas een termijn of e-mailbevestiging toe als de bedrijfsdienst die werkelijk afhandelt.
+### Optionele doorsturing en later opnieuw proberen
+
+Na opslag probeert de server aanvullend door te sturen als `INTAKE_WEBHOOK_URL` (HTTPS) en `INTAKE_WEBHOOK_TOKEN` zijn ingesteld. Een ontbrekende verbinding of e-mailstoring verandert niets aan de opgeslagen aanvraag of de ontvangstbevestiging voor de klant. Zonder koppeling blijft de doorstuurstatus `pending`.
+
+De ontvangstdienst krijgt multipart-formdata met `Authorization: Bearer <token>` en `Idempotency-Key: BAH-…`: `reference`, `intake` (JSON), `dossier` en herhaalde `file:<vraag-id>`-velden. De dienst moet retries ontdubbelen en na succesvolle verwerking antwoorden met:
+
+```json
+{ "accepted": true, "reference": "BAH-<16 hoofdletter hextekens uit de aanvraag>", "receivedAt": "2026-11-05T12:00:00.000Z" }
+```
+
+Zonder geldige bevestiging blijft de status `pending`. Na het aansluiten of herstellen van de ontvangstdienst kunt u eerdere aanvragen alsnog doorsturen:
+
+```bash
+npm run intakes -- retry-pending
+```
+
+Dit commando kan ook door de serverbeheerder periodiek worden ingepland. Er is nog geen automatische e-maildienst of scheduler geconfigureerd. De klant ziet na echte opslag een aanvraagnummer en de normale vervolgstappen; er wordt geen verzonden e-mail of vaste reactietermijn beloofd.
 
 ### Vergunningcheck vanuit de opname
 

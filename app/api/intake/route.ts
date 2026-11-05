@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { forwardStoredIntake, intakeStorageAvailable, storeIntake } from "@/lib/intake-server";
 import { activeIntake, supportedIntakeFile } from "@/lib/intake-submission";
 import { exportIntake, value, type Answers, type IntakeFiles } from "@/lib/intake";
 import { workTypes, type WorkId } from "@/lib/pricing";
@@ -7,15 +8,8 @@ export const runtime = "nodejs";
 const maxBody = 102 * 1024 * 1024;
 const reply = (body: object, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 
-function destination() {
-  try {
-    const url = new URL(process.env.INTAKE_WEBHOOK_URL ?? "");
-    return url.protocol === "https:" && process.env.INTAKE_WEBHOOK_TOKEN ? url : null;
-  } catch { return null; }
-}
-
-export function GET() {
-  return reply({ available: Boolean(destination()) });
+export async function GET() {
+  return reply({ available: await intakeStorageAvailable() });
 }
 
 export async function POST(request: Request) {
@@ -25,8 +19,6 @@ export async function POST(request: Request) {
     try { if (new URL(origin).host !== host) return reply({ error: "Verstuur uw aanvraag vanaf deze website." }, 403); }
     catch { return reply({ error: "Ongeldige herkomst." }, 403); }
   }
-  const url = destination();
-  if (!url) return reply({ error: "Online versturen is nog niet beschikbaar. Uw aanvraag is niet verzonden. Bewaar uw gegevens en neem contact op per telefoon of e-mail." }, 503);
   if (!request.headers.get("content-type")?.startsWith("multipart/form-data")) return reply({ error: "Ongeldige aanvraag." }, 415);
   if (Number(request.headers.get("content-length")) > maxBody) return reply({ error: "Uw bijlagen zijn te groot. Gebruik samen maximaal 100 MB." }, 413);
 
@@ -74,28 +66,21 @@ export async function POST(request: Request) {
 
   const active = activeIntake(selected, answers, files);
   const hash = createHash("sha256").update(requestId as string).update(JSON.stringify({ selected, answers: active.answers }));
-  const forward = new FormData();
   for (const [id, attachments] of Object.entries(active.files)) {
     for (const file of attachments) {
-      hash.update(id).update(file.name).update(new Uint8Array(await file.arrayBuffer()));
-      forward.append(`file:${id}`, file, file.name);
+      hash.update(JSON.stringify([id, file.name, file.type, file.size])).update(new Uint8Array(await file.arrayBuffer()));
     }
   }
   const reference = `BAH-${hash.digest("hex").slice(0, 16).toUpperCase()}`;
-  forward.set("reference", reference);
-  forward.set("intake", JSON.stringify({ selected, answers: active.answers, consent: true }));
-  forward.set("dossier", exportIntake(selected, active.answers, active.files));
   try {
-    const response = await fetch(url, {
-      method: "POST", headers: { Authorization: `Bearer ${process.env.INTAKE_WEBHOOK_TOKEN}`, "Idempotency-Key": reference },
-      body: forward, signal: AbortSignal.timeout(30_000), redirect: "error",
+    const record = await storeIntake({
+      reference, selected, answers: active.answers, files: active.files,
+      dossier: (receipt) => exportIntake(selected, active.answers, active.files, receipt),
     });
-    if (!response.ok) throw new Error();
-    const receipt = await response.json();
-    // The receiving service must confirm durable receipt and deduplicate retries.
-    if (receipt.accepted !== true || receipt.reference !== reference || typeof receipt.receivedAt !== "string" || !Number.isFinite(Date.parse(receipt.receivedAt))) throw new Error();
-    return reply({ reference, receivedAt: receipt.receivedAt });
+    // A failed email/CRM connection must never turn a saved enquiry into a failed submission.
+    try { await forwardStoredIntake(record); } catch { /* The request and pending delivery remain on disk. */ }
+    return reply({ reference: record.reference, receivedAt: record.receivedAt });
   } catch {
-    return reply({ error: "We kunnen de ontvangst nog niet bevestigen. Uw antwoorden blijven behouden. Probeer opnieuw; dezelfde aanvraag wordt met hetzelfde kenmerk aangeboden." }, 502);
+    return reply({ error: "Uw aanvraag kon nog niet worden opgeslagen. Uw gegevens en foto's blijven in dit scherm staan. Probeer het opnieuw." }, 503);
   }
 }

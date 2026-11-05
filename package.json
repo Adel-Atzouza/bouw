@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "intakes": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/intakes.mjs"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

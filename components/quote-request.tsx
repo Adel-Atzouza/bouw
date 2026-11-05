@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useImperativeHandle, useRef, useState, type Ref } from "react";
 import { Icon } from "@/components/icon";
 import { contactEmail, contactPhone, phoneHref } from "@/lib/contact";
 import { isIntakeReceipt, supportedIntakeFile, type IntakeReceipt } from "@/lib/intake-submission";
-import { exportIntake, type Answers } from "@/lib/intake";
-import { downloadText, workTypes, type WorkId } from "@/lib/pricing";
+import type { Answers } from "@/lib/intake";
+import { workTypes, type WorkId } from "@/lib/pricing";
 
 export type QuoteRequestHandle = { open: (mode: "contact" | "guided", work?: WorkId) => void };
 const stepNames = ["Uw project", "Uw wensen", "Planning", "Contact"];
@@ -22,7 +22,6 @@ export default function QuoteRequest({ ref }: { ref: Ref<QuoteRequestHandle> }) 
   const [error, setError] = useState("");
   const [fileError, setFileError] = useState("");
   const [receipt, setReceipt] = useState<IntakeReceipt | null>(null);
-  const [available, setAvailable] = useState<boolean | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const requestId = useRef("");
   const submitting = useRef(false);
@@ -56,14 +55,6 @@ export default function QuoteRequest({ ref }: { ref: Ref<QuoteRequestHandle> }) 
     }
     focusHeading();
   } }));
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/intake", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => { if (response.ok) setAvailable((await response.json()).available === true); })
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
 
   function addFiles(incoming: FileList | null) {
     if (!incoming) return;
@@ -141,8 +132,7 @@ export default function QuoteRequest({ ref }: { ref: Ref<QuoteRequestHandle> }) 
                 {files.length > 0 && <ul className="quote-file-list" aria-label="Toegevoegde bestanden">{files.map((file, index) => <li key={`${file.name}-${file.lastModified}-${index}`}><Icon name="file" size={18} /><span>{file.name}<small>{(file.size / 1024 / 1024).toLocaleString("nl-NL", { maximumFractionDigits: 1 })} MB</small></span><button type="button" onClick={() => { setFiles(files.filter((_, i) => i !== index)); setFileError(""); }} aria-label={`Verwijder ${file.name}`}><Icon name="close" size={18} /></button></li>)}</ul>}
                 {Object.keys(answers).some((id) => id.startsWith("contact.") && ["scope", "size", "finish", "planning", "budget"].includes(id.slice(8)) && get(id)) && <details className="quote-summary"><summary>Uw eerdere antwoorden gaan mee</summary><dl>{[["scope", "Uw plannen"], ["size", "Omvang"], ["finish", "Onze rol"], ["planning", "Planning"], ["budget", "Budget"]].filter(([id]) => get(`contact.${id}`)).map(([id, label]) => <div key={id}><dt>{label}</dt><dd>{get(`contact.${id}`)}</dd></div>)}</dl></details>}
                 <label className="quote-consent"><input type="checkbox" required checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span>bouwregieaanhuis mag mijn gegevens en eventuele bijlagen gebruiken om contact met mij op te nemen over mijn plannen.</span></label>
-                {available === false && <div className="quote-unavailable" role="status"><strong>Online versturen is nog niet beschikbaar.</strong><p>Uw aanvraag is nog niet verzonden. U kunt uw ingevulde gegevens bewaren en ons bellen of mailen. Voeg foto&apos;s zelf toe aan uw e-mail.</p><button type="button" className="text-link" onClick={() => downloadText("bouwregieaanhuis-woonwensen.txt", exportIntake([work], payloadAnswers, { "contact.photos": files }))}>Bewaar mijn ingevulde gegevens <Icon name="download" size={17} /></button></div>}
-                <button className="button button-bordeaux quote-submit" type="submit" disabled={available === false}>{busy ? "Uw aanvraag wordt verstuurd…" : "Verstuur mijn aanvraag"}<Icon name={busy ? "clock" : "arrow"} size={18} /></button>
+                <button className="button button-bordeaux quote-submit" type="submit" disabled={busy}>{busy ? "Uw aanvraag wordt verstuurd…" : "Verstuur mijn aanvraag"}<Icon name={busy ? "clock" : "arrow"} size={18} /></button>
                 <p className="quote-help"><Icon name="lock" size={15} /> Vrijblijvend. We bespreken eerst uw wensen en de mogelijkheden.</p>
               </fieldset>
               {error && <p className="error-notice" role="alert">{error}</p>}
