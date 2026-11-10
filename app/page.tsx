@@ -1,5 +1,6 @@
-import PlanBouw from "@/components/plan-bouw";
+import Delicent from "@/components/delicent";
+import { business } from "@/lib/delicent";
 
 export default function Home() {
-  return <PlanBouw />;
+  return <Delicent business={business} />;
 }

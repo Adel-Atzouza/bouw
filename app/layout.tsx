@@ -2,24 +2,18 @@ import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import "./globals.css";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin"],
-});
+const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "bouwregieaanhuis | Uw verbouwing. Zonder het regelwerk.",
+  icons: { icon: "/images/delicent.png", apple: "/images/delicent.png" },
+  title: "Dèlicent | Bouwkundige tekeningen & vergunningen",
   description:
-    "Uw complete renovatie van eerste plan tot oplevering. bouwregieaanhuis regelt vakmensen, planning en bouwbegeleiding. Beschrijf uw plannen en vraag vrijblijvend een offerte aan.",
+    "Van eerste idee naar een helder bouwplan. Dèlicent: tekenwerk voor dakkapel en dakopbouw, bouwkundige tekeningen, constructieberekeningen, daglicht- en ventilatieberekeningen en vergunningbegeleiding.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="nl"
-      translate="no"
-      className={manrope.variable}
-    >
+    <html lang="nl" className={manrope.variable}>
       <body>{children}</body>
     </html>
   );
