@@ -1,0 +1,15 @@
+Cloudflare DNS records for website email
+
+1. Edit the existing SPF record (do not add a second SPF record)
+Type: TXT
+Name: @
+Content: v=spf1 ip4:91.98.16.56 include:_spf.mx.cloudflare.net ~all
+
+2. Add the DKIM signing record
+Type: TXT
+Name: website2026._domainkey
+Content: v=DKIM1; h=sha256; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArY4urYdNpC2tRfR7SLb/dwNOSOof14h4v3mBSPu4QngVvueETd5atMRGmmd11D/pmG2Yw8d6ZrhXskqCmAEE3Da8ZCsfK8FQRZtexnh0yWOyvMvebNTKBmMmBG5NuEdPBU7YgCYeVRPwilTMBUX2GaQUMG6hBel9DeGkIT14M48bIToDAeBOcp7jyTv3MLwQ8ePuXIfT5aXmTCKaL4GWsnkA7TQblPXz2eXqRDg7vjR3HcWxhy6ISCVshXURXspqMJZxtCd+DJ/DthphMBbCLBj6eGgZdhAFw9bAxWihA7n/7HfqSezLEwylGyVABjidPWDtb1/DUDJiJT8yiJ7a9wIDAQAB
+
+Keep the existing MX records. Confirm the Email Routing rule for info@delicent.nl points to your verified destination inbox.
+
+Verified on 21 November 2026. Website notifications are enabled; Cloudflare accepted the live form test for info@delicent.nl. Final Gmail inbox arrival remains to be confirmed by the mailbox owner.

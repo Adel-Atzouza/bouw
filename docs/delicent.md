@@ -6,7 +6,7 @@ The homepage replaces the former renovation website. The new Dutch site focuses 
 
 - `pnpm dev` for the local site; `pnpm build` for the production build.
 - `/api/enquiry` validates and saves enquiries atomically to `.data/delicent/DEL-…/enquiry.json`, or `DELICENT_ENQUIRY_DIR` when configured. Retrying an identical request does not duplicate it. Records are not publicly served.
-- This implementation saves enquiries; it does **not** send email notifications. The operator must review the private records, or add a verified delivery integration before relying on notifications. Never place these records in `public` or commit them.
+- After storage, the site can queue a notification to **info@delicent.nl** using the server's local Postfix/sendmail. Enable it with `DELICENT_EMAIL_ENABLED=true` after following [Ubuntu email setup](delicent-email.md). An email failure does not discard the saved request. `email.json` records `pending` or `queued`; queued means handed to Postfix, not verified inbox delivery. Never place these records in `public` or commit them.
 - Production needs persistent private storage with restricted access and backups. An ephemeral/serverless filesystem is not a durable inbox.
 - Follow the privacy notice: review and remove enquiries that do not become projects within three months of the last substantive contact, including backup retention. Retention is an operational process, not an automated job in this version.
 

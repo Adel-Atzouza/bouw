@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test tests/*.test.mjs",
-    "intakes": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/intakes.mjs"
+    "intakes": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/intakes.mjs",
+    "enquiries": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/enquiries.mjs"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

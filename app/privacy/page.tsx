@@ -90,7 +90,9 @@ export default function Privacy() {
         <h2>Opslag en ontvangers</h2>
         <p>
           Aanvragen worden op de server opgeslagen, buiten de publiek
-          toegankelijke website. Alleen personen die uw aanvraag behandelen en
+          toegankelijke website. Voor de behandeling kunnen de aanvraaggegevens
+          ook per e-mail naar onze zakelijke mailbox worden gestuurd. Alleen
+          personen die uw aanvraag behandelen en
           technische dienstverleners die daarvoor nodig zijn, mogen toegang
           krijgen. We verkopen uw gegevens niet. Voor een vergunningaanvraag
           maken we afzonderlijke afspraken over de stukken en gegevens die naar

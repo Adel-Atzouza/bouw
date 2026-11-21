@@ -287,17 +287,13 @@ export default function Delicent({ business }: { business: Business }) {
               Bouwkundig tekenbureau · Nederland
             </p>
             <h1 id="hero-heading">
-              Uw bouwplan.
+              Van idee naar
               <br />
-              Helder getekend.
-              <br />
-              <em>Goed voorbereid.</em>
+              <em>vergunning.</em>
             </h1>
             <p className="hero-description">
-              Van dakkapel tot dakopbouw: Dèlicent verzorgt uw bouwkundige
-              tekeningen, constructieberekeningen en daglicht- en
-              ventilatieberekeningen. Met persoonlijke begeleiding bij uw
-              vergunningaanvraag.
+              Wij verzorgen tekenwerk, berekeningen en vergunningaanvragen voor
+              particulieren en bedrijven. Duidelijk, snel en professioneel.
             </p>
             <div className="hero-actions">
               <a className="button" href="#contact">
@@ -361,7 +357,7 @@ export default function Delicent({ business }: { business: Business }) {
             <div>
               <p className="eyebrow">01 / Wat we doen</p>
               <h2>
-                Een stevig vertrekpunt
+                Alle expertise
                 <br />
                 voor uw <em>bouwplannen.</em>
               </h2>

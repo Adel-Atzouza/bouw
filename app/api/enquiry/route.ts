@@ -1,4 +1,5 @@
 import { parseEnquiry, saveEnquiry } from "@/lib/delicent-enquiry";
+import { sendEnquiryEmail } from "@/lib/delicent-email";
 
 export const runtime = "nodejs";
 const maxBody = 24_000;
@@ -58,7 +59,15 @@ export async function POST(request: Request) {
       400,
     );
   try {
-    return reply(await saveEnquiry(enquiry));
+    const receipt = await saveEnquiry(enquiry);
+    try {
+      const email = await sendEnquiryEmail(receipt.reference);
+      if (email.status !== "queued")
+        console.warn("Enquiry email pending:", receipt.reference);
+    } catch {
+      console.error("Enquiry email needs retry:", receipt.reference);
+    }
+    return reply(receipt);
   } catch {
     return reply(
       {

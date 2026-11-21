@@ -23,7 +23,7 @@ Open http://localhost:3000. Production: `pnpm build` followed by `pnpm start`. T
 
 Set the verified `NEXT_PUBLIC_DELICENT_*` business details from `.env.example` in `.env.local` and rebuild. Configure persistent private storage with `DELICENT_ENQUIRY_DIR`.
 
-The contact form saves enquiries privately to `.data/delicent/DEL-…/enquiry.json`. Email notifications are not connected. Review these records as your inbox until a delivery integration is configured. Do not serve or commit this directory.
+The contact form saves enquiries privately to `.data/delicent/DEL-…/enquiry.json`. It can notify **info@delicent.nl** through local Postfix on Ubuntu, with no paid email API. Install and configure Postfix, then set `DELICENT_EMAIL_ENABLED=true`. Delivery is disabled by default until the server is ready. See [Ubuntu email setup](docs/delicent-email.md). Do not serve or commit enquiry records.
 
 See [Dèlicent setup, sources and launch details](docs/delicent.md) for privacy review, retention and production requirements. Previous private intake records are untouched; [archived documentation](docs/legacy-site.md) covers the retained legacy utilities.
 
