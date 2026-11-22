@@ -4,7 +4,7 @@ import Image from "next/image";
 import delicentLogo from "@/public/images/delicent.png";
 import Link from "next/link";
 import { useRef, useState, type FormEvent } from "react";
-import { services } from "@/lib/delicent-services.mjs";
+import { packages, services } from "@/lib/delicent-services.mjs";
 import ArchitecturalDrawing from "./architectural-drawing";
 import { projectTypes, type Business } from "@/lib/delicent";
 
@@ -161,19 +161,15 @@ const faqs = [
   ],
   [
     "Wat kosten de tekeningen en de vergunningaanvraag?",
-    "U ontvangt een offerte op basis van uw plannen en de beschikbare gegevens. Daarin staan het tekenwerk, de begeleiding, de afgesproken aanpassingsrondes en de prijs inclusief btw voor particulieren. Gemeentelijke leges, constructieberekeningen en eventuele onderzoeken worden apart benoemd en zijn alleen inbegrepen als dat uitdrukkelijk is afgesproken.",
+    "U ontvangt een offerte op basis van uw plannen en de beschikbare gegevens. Daarin staan het tekenwerk, de begeleiding, de afgesproken aanpassingsrondes en de prijs inclusief btw voor particulieren. Gemeentelijke leges, aanvullende berekeningen en eventuele onderzoeken worden apart benoemd en zijn alleen inbegrepen als dat uitdrukkelijk is afgesproken.",
   ],
   [
     "Kunnen jullie ook alleen de tekeningen maken?",
-    "Ja. U kunt bij ons terecht voor alleen tekeningen, constructieberekeningen, daglicht- en ventilatieberekeningen of vergunningbegeleiding. Een combinatie is ook mogelijk. Heeft u al stukken? Dan bekijken we wat bruikbaar is en wat nog moet worden aangevuld.",
+    "Ja. U kunt bij ons terecht voor alleen tekeningen, daglicht- en ventilatieberekeningen of vergunningbegeleiding. Een combinatie is ook mogelijk. Heeft u al stukken? Dan bekijken we wat bruikbaar is en wat nog moet worden aangevuld.",
   ],
   [
     "Hoe lang duurt het traject?",
     "De planning hangt af van de omvang van uw plan, de beschikbare stukken en eventuele aanvullende onderzoeken. Voor het tekenwerk maken we vooraf een planning. De behandeling door het bevoegd gezag heeft een eigen termijn; aanvullende vragen of een andere procedure kunnen invloed hebben op de doorlooptijd.",
-  ],
-  [
-    "Verzorgen jullie ook constructieberekeningen?",
-    "Ja. U kunt bij Dèlicent terecht voor constructieberekeningen, los of in combinatie met bouwkundig tekenwerk. We stemmen de berekeningen af op uw bouwplan en leggen vooraf vast welke onderdelen en kosten in de opdracht zijn opgenomen.",
   ],
   [
     "Kan ik ook daglicht- en ventilatieberekeningen aanvragen?",
@@ -259,6 +255,9 @@ export default function Delicent({ business }: { business: Business }) {
           >
             <a href="#diensten" onClick={() => setMenuOpen(false)}>
               Diensten
+            </a>
+            <a href="#pakketten" onClick={() => setMenuOpen(false)}>
+              Pakketten
             </a>
             <a href="#bouwplannen" onClick={() => setMenuOpen(false)}>
               Uw bouwplan
@@ -414,6 +413,47 @@ export default function Delicent({ business }: { business: Business }) {
           </div>
         </section>
 
+        <section id="pakketten" className="section packages-section">
+          <div className="container">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">02 / Kies wat bij u past</p>
+                <h2>
+                  Drie heldere
+                  <br />
+                  <em>pakketten.</em>
+                </h2>
+              </div>
+              <p>
+                Kies de begeleiding die past bij uw situatie. In de offerte
+                leggen we de exacte scope, eventuele leges en aanvullende kosten
+                duidelijk vast.
+              </p>
+            </div>
+            <div className="packages">
+              {packages.map((item, i) => (
+                <article className={`package-card${i === 0 ? " package-card-featured" : ""}`} key={item.title}>
+                  <div className="package-card-top">
+                    <span>{item.label}</span>
+                    <span>0{i + 1}</span>
+                  </div>
+                  <h3>{item.title}</h3>
+                  <p>{item.text}</p>
+                  <ul>
+                    {item.included.map((point) => (
+                      <li key={point}><span aria-hidden="true">↗</span>{point}</li>
+                    ))}
+                  </ul>
+                  <p className="package-note">{item.note}</p>
+                  <a className="text-link" href="#contact" onClick={() => setProject(item.title)}>
+                    Vraag dit pakket aan <Arrow diagonal />
+                  </a>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section id="bouwplannen" className="projects section">
           <div className="container">
             <div className="section-heading">
@@ -494,7 +534,7 @@ export default function Delicent({ business }: { business: Business }) {
         <section id="werkwijze" className="section container">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">03 / Onze werkwijze</p>
+                <p className="eyebrow">04 / Onze werkwijze</p>
               <h2>
                 Van eerste gesprek
                 <br />
@@ -597,7 +637,7 @@ export default function Delicent({ business }: { business: Business }) {
             </div>
           </div>
           <div className="about-copy">
-            <p className="eyebrow">04 / Aangenaam, Dèlicent</p>
+            <p className="eyebrow">05 / Aangenaam, Dèlicent</p>
             <h2>
               Aandacht voor de lijnen.
               <br />

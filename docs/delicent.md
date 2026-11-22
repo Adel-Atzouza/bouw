@@ -1,6 +1,6 @@
 # Dèlicent website
 
-The homepage replaces the former renovation website. The new Dutch site focuses on bouwkundige tekeningen, dakkapel, dakopbouw, constructieberekeningen, daglicht- en ventilatieberekeningen, and vergunningbegeleiding. Service cards preselect the corresponding enquiry choice; the frontend and API share these choices in `lib/delicent-services.mjs`. The old renovation components are not rendered. Existing private intake data is not altered.
+The homepage replaces the former renovation website. The new Dutch site focuses on bouwkundige tekeningen, dakkapel, dakopbouw, daglicht- en ventilatieberekeningen, and vergunningbegeleiding. Service cards and packages preselect the corresponding enquiry choice; the frontend and API share these choices in `lib/delicent-services.mjs`. The old renovation components are not rendered. Existing private intake data is not altered.
 
 ## Running and receiving enquiries
 

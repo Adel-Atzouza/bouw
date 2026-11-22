@@ -536,6 +536,91 @@ h2 em {
   color: var(--muted);
   flex: 1 1 300px;
 }
+.packages-section {
+  background: var(--paper);
+}
+.packages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--line);
+}
+.package-card {
+  padding: 31px 30px 25px;
+  display: flex;
+  flex-direction: column;
+  min-height: 440px;
+}
+.package-card + .package-card {
+  border-left: 1px solid var(--line);
+}
+.package-card-featured {
+  background: var(--ink);
+  color: var(--paper);
+}
+.package-card-top {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 44px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: 9px;
+}
+.package-card-top span:last-child {
+  opacity: .55;
+}
+.package-card h3 {
+  font-size: 21px;
+  line-height: 1.25;
+  letter-spacing: -.6px;
+  font-weight: 500;
+  max-width: 250px;
+  margin-bottom: 16px;
+}
+.package-card > p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.package-card-featured > p {
+  color: rgba(255,255,255,.68);
+}
+.package-card ul {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  margin: 25px 0 20px;
+  padding: 0;
+  flex: 1;
+}
+.package-card li {
+  display: flex;
+  gap: 9px;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.package-card li span {
+  color: var(--accent);
+  flex: 0 0 auto;
+}
+.package-note {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  margin-bottom: 18px;
+  font-size: 10px !important;
+  line-height: 1.65 !important;
+}
+.package-card-featured .package-note {
+  border-color: rgba(255,255,255,.2);
+}
+.package-card .text-link {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  justify-content: space-between;
+  font-size: 11px;
+}
+.package-card-featured .text-link {
+  border-color: rgba(255,255,255,.2);
+}
 .projects {
   background: var(--soft);
 }
@@ -1522,6 +1607,26 @@ h2 em {
   }
   .service .text-link {
     font-size: 12px;
+  }
+  .packages {
+    grid-template-columns: 1fr;
+  }
+  .package-card {
+    min-height: 0;
+    padding: 27px;
+  }
+  .package-card + .package-card {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .package-card-top {
+    margin-bottom: 24px;
+  }
+  .package-card h3 {
+    font-size: 22px;
+  }
+  .package-card ul {
+    margin-bottom: 22px;
   }
   .project-options {
     display: grid;
