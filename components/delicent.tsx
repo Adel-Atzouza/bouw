@@ -288,7 +288,7 @@ export default function Delicent({ business }: { business: Business }) {
             <h1 id="hero-heading">
               Van idee naar
               <br />
-              <em>vergunning.</em>
+              <em>Ontwerp.</em>
             </h1>
             <p className="hero-description">
               Wij verzorgen tekenwerk, berekeningen en vergunningaanvragen voor
